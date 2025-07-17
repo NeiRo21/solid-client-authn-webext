@@ -95,8 +95,9 @@ async function makeAuthenticatedRequest(
   url: RequestInfo | URL,
   defaultRequestInit?: RequestInit,
   dpopKey?: KeyPair,
+  unauthFetch = fetch,
 ) {
-  return fetch(
+  return unauthFetch(
     url,
     await buildAuthenticatedHeaders(
       url.toString(),
@@ -121,9 +122,6 @@ async function refreshAccessToken(
     EVENTS.SESSION_EXTENDED,
     tokenSet.expiresIn ?? DEFAULT_EXPIRATION_TIME_SECONDS,
   );
-  if (typeof tokenSet.refreshToken === "string") {
-    eventEmitter?.emit(EVENTS.NEW_REFRESH_TOKEN, tokenSet.refreshToken);
-  }
   return {
     accessToken: tokenSet.accessToken,
     refreshToken: tokenSet.refreshToken,
@@ -150,19 +148,21 @@ const computeRefreshDelay = (expiresIn?: number): number => {
  * @param accessToken an access token, either a Bearer token or a DPoP one.
  * @param options The option object may contain two objects: the DPoP key token
  * is bound to if applicable, and options to customize token renewal behavior.
+ * @param {typeof fetch} [options.fetch=fetch] A custom fetch function (defaults to the global fetch).
  *
  * @returns A fetch function that adds an appropriate Authorization header with
  * the provided token, and adds a DPoP header if applicable.
  */
-export async function buildAuthenticatedFetch(
+export function buildAuthenticatedFetch(
   accessToken: string,
   options?: {
     dpopKey?: KeyPair;
     refreshOptions?: RefreshOptions;
     expiresIn?: number;
     eventEmitter?: EventEmitter;
+    fetch?: typeof fetch; // optional custom fetch
   },
-): Promise<typeof fetch> {
+): typeof fetch {
   let currentAccessToken = accessToken;
   let latestTimeout: Parameters<typeof clearTimeout>[0];
   const currentRefreshOptions: RefreshOptions | undefined =
@@ -261,6 +261,7 @@ export async function buildAuthenticatedFetch(
       url,
       requestInit,
       options?.dpopKey,
+      options?.fetch,
     );
 
     const failedButNotExpectedAuthError =
@@ -283,6 +284,7 @@ export async function buildAuthenticatedFetch(
         response.url,
         requestInit,
         options.dpopKey,
+        options.fetch,
       );
     }
     return response;

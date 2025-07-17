@@ -8,7 +8,7 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 ## Deprecation notice
 
 - A new signature was introduced for `getSessionFromStorage` in release 2.3.0. The legacy signature is
-  deprecated, and could be removed with the next major release.
+  deprecated, and will be removed with the 4.0.0 major release.
 
 ```javascript
 // Deprecated signature
@@ -26,9 +26,57 @@ const session = await getSessionFromStorage(sessionId, {
 });
 ```
 
+- The event `EVENTS.NEW_REFRESH_TOKEN` is being replaced by `EVENTS.NEW_TOKENS` which returns all the tokens a client
+  can store for refreshing a session.
+
 ## Unreleased
 
 The following changes have been implemented but not released yet:
+
+## [3.1.0](https://github.com/inrupt/solid-client-authn-js/releases/tag/v3.1.0) - 2025-07-08
+
+### New feature
+
+#### browser and node
+
+- `Session::login` now supports an additional `customScopes: string[]` option.
+  It allows developers to specify custom scopes to be added to the authorization request,
+  which will be presented to the user by their OpenID Provider on the consent
+  prompt. If they consent, the issued ID Token may include additional claims based
+  on the requested scopes.
+
+## [3.0.0](https://github.com/inrupt/solid-client-authn-js/releases/tag/v3.0.0) - 2025-07-03
+
+### Breaking Changes
+
+- Support for Node.js v18.x has been dropped as that version has reached end-of-life.
+
+### Bugfix
+
+#### browser and node
+
+- Fixed the usage of client information from previous dynamic registration that have no expiration date.
+
+## [2.5.0](https://github.com/inrupt/solid-client-authn-js/releases/tag/v2.5.0) - 2025-05-09
+
+### Feature
+
+#### node
+
+- Added a `logout` function in the token management API that enables RP-initiated logout for multi-user server-side applications. This complements the `refreshTokens` function introduced in 2.4.0, allowing applications that manage tokens in external storage to both refresh tokens and perform identity provider logout without requiring a Session object. Applications can now implement complete user authentication lifecycle management using token sets stored in their own database.
+- Added a `EVENTS.AUTHORIZATION_REQUEST` (`authorizationRequest`) event that emits authentication state during login to support clustered deployments.
+- Added a static `Session.fromAuthorizationRequestState()` method that creates a new session from previously stored authentication state.
+
+## [2.4.1](https://github.com/inrupt/solid-client-authn-js/releases/tag/v2.4.1) - 2025-04-18
+
+### Bugfix
+
+#### node
+
+- `refreshTokens` had a bug causing an unexpected refresh token rotation if the ID token expired,
+  resulting in the stored token being stale.
+
+## [2.4.0](https://github.com/inrupt/solid-client-authn-js/releases/tag/v2.4.0) - 2025-04-15
 
 ### Bugfix
 
@@ -41,6 +89,15 @@ The following changes have been implemented but not released yet:
   and end up on an error page unrelated to the application they were trying to log into. Now,
   expired dynamic clients go through registration again: the user will need to authorize the client
   after expiration, but will not experience further inconveniences.
+
+### Feature
+
+#### node
+
+- Added a `EVENTS.NEW_TOKENS` (`newTokens`) event to be emitted by the `Session` when it receives new tokens when a session is initially
+  logged in or refreshed. This event is more useful than `EVENTS.NEW_REFRESH_TOKEN` which is being deprecated.
+- Added a static `Session.fromTokens(tokens, sessionId)` method that creates a new authenticated session directly from a token set, without requiring a full login flow.
+- Added a new function `refreshTokens` to refresh tokens obtained via the `newTokens` event after the Access Token expired.
 
 ## [2.3.0](https://github.com/inrupt/solid-client-authn-js/releases/tag/v2.3.0) - 2024-11-14
 

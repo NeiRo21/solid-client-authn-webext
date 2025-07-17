@@ -20,10 +20,84 @@
 //
 import type { EventEmitter } from "events";
 import type { EVENTS } from "./constant";
+import type { KeyPair } from "./authenticatedFetch/dpopUtils";
 
 export interface IHasSessionEventListener {
   events: ISessionEventListener;
 }
+
+/**
+ * The state preserved during an authorization request and sent to the client
+ */
+export type AuthorizationRequestState = {
+  /**
+   * The code verifier used to generate the authorization code.
+   */
+  codeVerifier: string;
+
+  /**
+   * The state parameter used to generate the authorization code.
+   */
+  state: string;
+
+  /**
+   * The user's identity provider.
+   */
+  issuer: string;
+
+  /**
+   * The redirect URL to which the user will be redirected after the authorization code has been received.
+   */
+  redirectUrl: string;
+
+  /**
+   * True if a DPoP compatible auth_token should be requested.
+   */
+  dpopBound: boolean;
+
+  /**
+   * The ID of your application.
+   */
+  clientId: string;
+};
+
+/**
+ * A set of tokens to be passed to the client
+ */
+export type SessionTokenSet = {
+  /**
+   * JWT-serialized access token
+   */
+  accessToken?: string;
+  /**
+   * JWT-serialized ID token
+   */
+  idToken?: string;
+  /**
+   * URL identifying the subject of the ID token.
+   */
+  webId?: string;
+  /**
+   * Refresh token (not necessarily a JWT)
+   */
+  refreshToken?: string;
+  /**
+   * Expiration of the access token.
+   */
+  expiresAt?: number;
+  /**
+   * DPoP key to which the access token, and potentially the refresh token, are bound.
+   */
+  dpopKey?: KeyPair;
+  /**
+   * The user's identity provider.
+   */
+  issuer: string;
+  /**
+   * The ID of your application.
+   */
+  clientId: string;
+};
 
 // These types help preventing inconsistencies between on, once and off.
 type LOGIN_ARGS = { eventName: typeof EVENTS.LOGIN; listener: () => void };
@@ -51,9 +125,20 @@ type TIMEOUT_SET_ARGS = {
   eventName: typeof EVENTS.TIMEOUT_SET;
   listener: (timeoutId: number) => void;
 };
+/**
+ * @deprecated Use NEW_TOKENS_ARGS instead
+ */
 type NEW_REFRESH_TOKEN_ARGS = {
   eventName: typeof EVENTS.NEW_REFRESH_TOKEN;
   listener: (newToken: string) => void;
+};
+type NEW_TOKENS_ARGS = {
+  eventName: typeof EVENTS.NEW_TOKENS;
+  listener: (tokenSet: SessionTokenSet) => void;
+};
+type AUTH_STATE_ARGS = {
+  eventName: typeof EVENTS.AUTHORIZATION_REQUEST;
+  listener: (authorizationRequestState: AuthorizationRequestState) => void;
 };
 type FALLBACK_ARGS = {
   eventName: Parameters<InstanceType<typeof EventEmitter>["on"]>[0];
@@ -130,14 +215,33 @@ export interface ISessionEventListener extends EventEmitter {
    * Register a listener called when a new refresh token is issued for the session.
    * @param eventName The new refresh token issued event name.
    * @param listener The callback called when a new refresh token is issued.
+   * @deprecated Use NEW_TOKENS event listeners instead
    */
   on(
     eventName: NEW_REFRESH_TOKEN_ARGS["eventName"],
     listener: NEW_REFRESH_TOKEN_ARGS["listener"],
   ): this;
   /**
+   * Register a listener called when new tokens are issued for the session.
+   * @param eventName The new tokens issued event name.
+   * @param listener The callback called when new tokens are issued.
+   */
+  on(
+    eventName: NEW_TOKENS_ARGS["eventName"],
+    listener: NEW_TOKENS_ARGS["listener"],
+  ): this;
+  /**
+   * Register a listener called when auth state information is available during authentication.
+   * @param eventName The auth state event name.
+   * @param listener The callback called when auth state information is available.
+   */
+  on(
+    eventName: AUTH_STATE_ARGS["eventName"],
+    listener: AUTH_STATE_ARGS["listener"],
+  ): this;
+  /**
    * @hidden This is a fallback constructor overriding the EventEmitter behavior.
-   *  It shouldn"t be in the API docs.
+   *  It shouldn't be in the API docs.
    */
   on(
     eventName: FALLBACK_ARGS["eventName"],
@@ -212,14 +316,33 @@ export interface ISessionEventListener extends EventEmitter {
    * Register a listener called when a new refresh token is issued for the session.
    * @param eventName The new refresh token issued event name.
    * @param listener The callback called when a new refresh token is issued.
+   * @deprecated Use NEW_TOKENS event listeners instead
    */
   addListener(
     eventName: NEW_REFRESH_TOKEN_ARGS["eventName"],
     listener: NEW_REFRESH_TOKEN_ARGS["listener"],
   ): this;
   /**
+   * Register a listener called when new tokens are issued for the session.
+   * @param eventName The new tokens issued event name.
+   * @param listener The callback called when new tokens are issued.
+   */
+  addListener(
+    eventName: NEW_TOKENS_ARGS["eventName"],
+    listener: NEW_TOKENS_ARGS["listener"],
+  ): this;
+  /**
+   * Register a listener called when auth state information is available during authentication.
+   * @param eventName The auth state event name.
+   * @param listener The callback called when auth state information is available.
+   */
+  addListener(
+    eventName: AUTH_STATE_ARGS["eventName"],
+    listener: AUTH_STATE_ARGS["listener"],
+  ): this;
+  /**
    * @hidden This is a fallback constructor overriding the EventEmitter behavior.
-   *  It shouldn"t be in the API docs.
+   *  It shouldn't be in the API docs.
    */
   addListener(
     eventName: FALLBACK_ARGS["eventName"],
@@ -295,14 +418,35 @@ export interface ISessionEventListener extends EventEmitter {
    * the session.
    * @param eventName The new refresh token issued event name.
    * @param listener The callback called next time a new refresh token is issued.
+   * @deprecated Use NEW_TOKENS event listeners instead
    */
   once(
     eventName: NEW_REFRESH_TOKEN_ARGS["eventName"],
     listener: NEW_REFRESH_TOKEN_ARGS["listener"],
   ): this;
   /**
+   * Register a listener called the next time new tokens are issued for
+   * the session.
+   * @param eventName The new tokens issued event name.
+   * @param listener The callback called next time new tokens are issued.
+   * @since 2.4.0
+   */
+  once(
+    eventName: NEW_TOKENS_ARGS["eventName"],
+    listener: NEW_TOKENS_ARGS["listener"],
+  ): this;
+  /**
+   * Register a listener called the next time auth state information is available during authentication.
+   * @param eventName The auth state event name.
+   * @param listener The callback called next time auth state information is available.
+   */
+  once(
+    eventName: AUTH_STATE_ARGS["eventName"],
+    listener: AUTH_STATE_ARGS["listener"],
+  ): this;
+  /**
    * @hidden This is a fallback constructor overriding the EventEmitter behavior.
-   *  It shouldn"t be in the API docs.
+   *  It shouldn't be in the API docs.
    */
   once(
     eventName: FALLBACK_ARGS["eventName"],
@@ -376,14 +520,33 @@ export interface ISessionEventListener extends EventEmitter {
    * Unegister a listener called when a new refresh token is issued.
    * @param eventName The new refresh token issued event name.
    * @param listener The callback called next time a new refresh token is issued.
+   * @deprecated Use NEW_TOKENS event listeners instead
    */
   off(
     eventName: NEW_REFRESH_TOKEN_ARGS["eventName"],
     listener: NEW_REFRESH_TOKEN_ARGS["listener"],
   ): this;
   /**
+   * Unegister a listener called when new tokens are issued.
+   * @param eventName The new tokens issued event name.
+   * @param listener The callback called next time new tokens are issued.
+   */
+  off(
+    eventName: NEW_TOKENS_ARGS["eventName"],
+    listener: NEW_TOKENS_ARGS["listener"],
+  ): this;
+  /**
+   * Unregister a listener called when auth state information is available.
+   * @param eventName The auth state event name.
+   * @param listener The callback to unregister.
+   */
+  off(
+    eventName: AUTH_STATE_ARGS["eventName"],
+    listener: AUTH_STATE_ARGS["listener"],
+  ): this;
+  /**
    * @hidden This is a fallback constructor overriding the EventEmitter behavior.
-   *  It shouldn"t be in the API docs.
+   *  It shouldn't be in the API docs.
    */
   off(
     eventName: FALLBACK_ARGS["eventName"],
@@ -457,14 +620,33 @@ export interface ISessionEventListener extends EventEmitter {
    * Unegister a listener called when a new refresh token is issued.
    * @param eventName The new refresh token issued event name.
    * @param listener The callback called next time a new refresh token is issued.
+   * @deprecated Use NEW_TOKENS event listeners instead
    */
   removeListener(
     eventName: NEW_REFRESH_TOKEN_ARGS["eventName"],
     listener: NEW_REFRESH_TOKEN_ARGS["listener"],
   ): this;
   /**
+   * Unegister a listener called when new tokens are issued.
+   * @param eventName The new tokens issued event name.
+   * @param listener The callback called next time new tokens are issued.
+   */
+  removeListener(
+    eventName: NEW_TOKENS_ARGS["eventName"],
+    listener: NEW_TOKENS_ARGS["listener"],
+  ): this;
+  /**
+   * Unregister a listener called when auth state information is available.
+   * @param eventName The auth state event name.
+   * @param listener The callback to unregister.
+   */
+  removeListener(
+    eventName: AUTH_STATE_ARGS["eventName"],
+    listener: AUTH_STATE_ARGS["listener"],
+  ): this;
+  /**
    * @hidden This is a fallback constructor overriding the EventEmitter behavior.
-   *  It shouldn"t be in the API docs.
+   *  It shouldn't be in the API docs.
    */
   removeListener(
     eventName: FALLBACK_ARGS["eventName"],
@@ -473,7 +655,7 @@ export interface ISessionEventListener extends EventEmitter {
 
   /**
    * @hidden This is a fallback overriding the EventEmitter behavior.
-   *  It shouldn"t be in the API docs.
+   *  It shouldn't be in the API docs.
    */
   emit(eventName: never, ...args: never): boolean;
 }
