@@ -1,8 +1,6 @@
 {
   "include": [
     "packages/*/src/**/*.ts",
-    "e2e/*/**/*.ts",
-    "e2e/node/jest.setup.ts",
     "./jest.setup.ts",
     "./jest.config.ts"
   ],
@@ -29,8 +27,7 @@
     "exclude": [
       // Re-exported functions are already documented in their own modules:
       "./packages/*/src/index.ts",
-      "./packages/*/src/index.browser.ts",
-      "./e2e/**/*.ts"
+      "./packages/*/src/index.browser.ts"
     ],
     "excludeNotDocumented": false,
     "excludePrivate": true,

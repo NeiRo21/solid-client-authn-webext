@@ -67,29 +67,12 @@ const config: JestConfigWithTsJest = {
     },
     {
       ...baseConfig,
-      displayName: "oidc-browser",
-      // This combination of preset/transformIgnorePatterns enforces that both TS and
-      // JS files are transformed to CJS, and that the transform also applies to the
-      // dependencies in the node_modules, so that ESM-only dependencies are supported.
-      preset: "ts-jest/presets/js-with-ts",
-      // Deliberately allow including node_modules when transforming code. undici can
-      // also be ignored, as it isn't necessary in the browser setting.
-      transformIgnorePatterns: ["undici"],
-      roots: ["<rootDir>/packages/oidc-browser"],
-      // This test environment is an extension of jsdom. This module targets the
-      // browser environment only, so tests only need to run in jsdom.
-      // Currently, this is still required despite the polyfills in jest setup.
-      // See comments in file.
-      testEnvironment: "<rootDir>/tests/environment/customEnvironment.ts",
-    },
-    {
-      ...baseConfig,
       // This combination of preset/transformIgnorePatterns enforces that both TS and
       // JS files are transformed to CJS, and that the transform also applies to the
       // dependencies in the node_modules, so that ESM-only dependencies are supported.
       preset: "ts-jest/presets/js-with-ts",
       displayName: "browser",
-      roots: ["<rootDir>/packages/browser"],
+      roots: ["<rootDir>/packages/webext"],
       // Deliberately allow including node_modules when transforming code. undici can
       // also be ignored, as it isn't necessary in the browser setting.
       transformIgnorePatterns: ["undici"],
@@ -101,28 +84,6 @@ const config: JestConfigWithTsJest = {
       // Enable injectGlobals here to support jest-mock-console
       // https://github.com/bpedersen/jest-mock-console/issues/32
       injectGlobals: true,
-    },
-    {
-      ...baseConfig,
-      displayName: "node",
-      roots: ["<rootDir>/packages/node"],
-      testEnvironment: "node",
-    },
-    {
-      ...baseConfig,
-      displayName: "e2e-node-script",
-      roots: ["<rootDir>/e2e/node/script"],
-      setupFiles: ["<rootDir>/e2e/node/jest.setup.ts"],
-      setupFilesAfterEnv: [],
-      slowTestThreshold: 30,
-    },
-    {
-      ...baseConfig,
-      displayName: "e2e-node-server",
-      roots: ["<rootDir>/e2e/node/server"],
-      setupFiles: ["<rootDir>/e2e/node/jest.setup.ts"],
-      setupFilesAfterEnv: [],
-      slowTestThreshold: 30,
     },
   ],
 };

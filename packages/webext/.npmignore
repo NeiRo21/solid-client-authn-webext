@@ -1,0 +1,10 @@
+.git
+docs
+coverage
+report
+.vscode
+examples
+sampleFlows/
+.prettierignore
+README.md
+sonar-project.properties
