@@ -19,78 +19,143 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-import {
-  jest,
-  it,
-  describe,
-  expect,
-  beforeEach,
-  afterEach,
-} from "@jest/globals";
+// Copyright (c) 2025 NeiRo21
+
+import { jest, it, describe, expect } from "@jest/globals";
+import type {
+  IIncomingRedirectHandler,
+  IncomingRedirectResult,
+  SessionConfig,
+} from "core";
+import type { EventEmitter } from "events";
+import type { RedirectCallback } from "./Redirector";
 import Redirector from "./Redirector";
 
-/**
- * Test for Redirector
- */
+const mockedHandle =
+  jest.fn<
+    (
+      redirectUrl: string,
+      eventEmitter: EventEmitter | undefined,
+      sessionConfig: SessionConfig | undefined,
+    ) => Promise<IncomingRedirectResult>
+  >();
+const mockRedirectHandler = {
+  canHandle: jest.fn(),
+  handle: mockedHandle,
+} as any as IIncomingRedirectHandler;
+const mockAfterRedirect = jest.fn<RedirectCallback>();
+
+jest.useFakeTimers();
+
 describe("Redirector", () => {
+  const redirector = new Redirector(mockRedirectHandler, mockAfterRedirect);
+
   describe("redirect", () => {
-    const {
-      location,
-      history: { replaceState },
-    } = window;
+    const TEST_REDIRECT_URL = "https://someUrl.com/redirect";
+    const MOCK_REDIRECT_HANDLING_RESULT: IncomingRedirectResult = {
+      isLoggedIn: true,
+      sessionId: "mock-session-id",
+      fetch,
+    };
 
-    beforeEach(() => {
-      // location and history aren't optional on window, which makes TS complain
-      // (rightfully) when we delete them. However, they are deleted on purpose
-      // here just for testing.
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      delete window.location;
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      delete window.history.replaceState;
-      (window as any).location = {
-        href: "https://coolSite.com",
-      } as Location;
-      window.history.replaceState = jest.fn();
-    });
+    it("should launch OAuth2 authentication flow", async () => {
+      // Arrange
+      jest
+        .spyOn(browser.identity, "launchWebAuthFlow")
+        .mockResolvedValueOnce(TEST_REDIRECT_URL);
 
-    afterEach(() => {
-      (window as any).location = location;
-      window.history.replaceState = replaceState;
-    });
+      // Act
+      redirector.redirect(TEST_REDIRECT_URL);
 
-    it("browser redirection defaults to using href", () => {
-      const redirector = new Redirector();
-      redirector.redirect("https://someUrl.com/redirect");
-      expect(window.history.replaceState).not.toHaveBeenCalled();
-      expect(window.location.href).toBe("https://someUrl.com/redirect");
-    });
-
-    it("browser redirection uses replaceState if specified", () => {
-      const redirector = new Redirector();
-      redirector.redirect("https://someUrl.com/redirect", {
-        redirectByReplacingState: true,
+      // Assert
+      await jest.runAllTimersAsync();
+      expect(browser.identity.launchWebAuthFlow).toHaveBeenCalledTimes(1);
+      expect(browser.identity.launchWebAuthFlow).toHaveBeenCalledWith({
+        url: TEST_REDIRECT_URL,
+        interactive: true,
       });
-      expect(window.history.replaceState).toHaveBeenCalledWith(
-        {},
-        "",
-        "https://someUrl.com/redirect",
+    });
+
+    it("should call redirect handler if authentication succeeds", async () => {
+      // Arrange
+      jest
+        .spyOn(browser.identity, "launchWebAuthFlow")
+        .mockResolvedValueOnce(TEST_REDIRECT_URL);
+
+      // Act
+      redirector.redirect(TEST_REDIRECT_URL);
+
+      // Assert
+      await jest.runAllTimersAsync();
+      expect(mockedHandle).toHaveBeenCalledTimes(1);
+      expect(mockedHandle).toHaveBeenCalledWith(
+        TEST_REDIRECT_URL,
+        undefined,
+        undefined,
       );
-      expect(window.location.href).toBe("https://coolSite.com");
     });
 
-    it("calls redirect handler", () => {
-      const handler = jest.fn();
-      const redirectUrl = "https://someUrl.com/redirect";
-      const redirector = new Redirector();
-      redirector.redirect(redirectUrl, {
-        redirectByReplacingState: true,
-        handleRedirect: handler,
-      });
+    it("should call afterRedirect callback with error if authentication fails", async () => {
+      // Arrange
+      jest
+        .spyOn(browser.identity, "launchWebAuthFlow")
+        .mockRejectedValueOnce("test error");
 
-      expect(handler).toHaveBeenCalledTimes(1);
-      expect(handler).toHaveBeenCalledWith(redirectUrl);
+      // Act
+      redirector.redirect(TEST_REDIRECT_URL);
+
+      // Assert
+      await jest.runAllTimersAsync();
+      expect(mockAfterRedirect).toHaveBeenCalledTimes(1);
+      expect(mockAfterRedirect).toHaveBeenCalledWith(
+        {
+          isLoggedIn: false,
+          sessionId: expect.anything(),
+          fetch: expect.anything(),
+        },
+        "test error",
+      );
+    });
+
+    it("should call afterRedirect callback if redirect handling is successful", async () => {
+      // Arrange
+      jest
+        .spyOn(browser.identity, "launchWebAuthFlow")
+        .mockResolvedValueOnce(TEST_REDIRECT_URL);
+      mockedHandle.mockResolvedValueOnce(MOCK_REDIRECT_HANDLING_RESULT);
+
+      // Act
+      redirector.redirect(TEST_REDIRECT_URL);
+
+      // Assert
+      await jest.runAllTimersAsync();
+      expect(mockAfterRedirect).toHaveBeenCalledTimes(1);
+      expect(mockAfterRedirect).toHaveBeenCalledWith(
+        MOCK_REDIRECT_HANDLING_RESULT,
+      );
+    });
+
+    it("should call afterRedirect callback with error if redirect handling fails", async () => {
+      // Arrange
+      jest
+        .spyOn(browser.identity, "launchWebAuthFlow")
+        .mockResolvedValueOnce(TEST_REDIRECT_URL);
+      mockedHandle.mockRejectedValueOnce("test error");
+
+      // Act
+      redirector.redirect(TEST_REDIRECT_URL);
+
+      // Assert
+      await jest.runAllTimersAsync();
+      expect(mockAfterRedirect).toHaveBeenCalledTimes(1);
+      expect(mockAfterRedirect).toHaveBeenCalledWith(
+        {
+          isLoggedIn: false,
+          sessionId: expect.anything(),
+          fetch: expect.anything(),
+        },
+        "test error",
+      );
     });
   });
 });

@@ -19,6 +19,8 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// Copyright (c) 2025 NeiRo21
+
 import type { Config } from "jest";
 import { createJsWithTsPreset, type JestConfigWithTsJest } from "ts-jest";
 
@@ -71,7 +73,7 @@ const config: JestConfigWithTsJest = {
       // JS files are transformed to CJS, and that the transform also applies to the
       // dependencies in the node_modules, so that ESM-only dependencies are supported.
       preset: "ts-jest/presets/js-with-ts",
-      displayName: "browser",
+      displayName: "webext",
       roots: ["<rootDir>/packages/webext"],
       // Deliberately allow including node_modules when transforming code. undici can
       // also be ignored, as it isn't necessary in the browser setting.

@@ -19,6 +19,8 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// Copyright (c) 2025 NeiRo21
+
 /**
  * @hidden
  * @packageDocumentation
@@ -30,6 +32,7 @@ import type {
   IIssuerConfig,
   IClient,
   IClientRegistrarOptions,
+  IOpenIdDynamicClient,
 } from "@inrupt/solid-client-authn-core";
 import { isKnownClientType } from "@inrupt/solid-client-authn-core";
 import { registerClient } from "@inrupt/oidc-client-ext";
@@ -108,8 +111,9 @@ export default class ClientRegistrar implements IClientRegistrar {
         clientType: "dynamic",
       };
       if (registeredClient.clientSecret !== undefined) {
-        infoToSave.clientSecret = registeredClient.clientSecret;
-        infoToSave.expiresAt = String(registeredClient.expiresAt);
+        const client = registeredClient as IOpenIdDynamicClient;
+        infoToSave.clientSecret = client.clientSecret!;
+        infoToSave.expiresAt = String(client.expiresAt);
       }
       if (registeredClient.idTokenSignedResponseAlg) {
         infoToSave.idTokenSignedResponseAlg =

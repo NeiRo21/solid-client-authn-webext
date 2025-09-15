@@ -19,11 +19,9 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-export {
-  Session,
-  ISessionOptions,
-  IHandleIncomingRedirectOptions,
-} from "./Session";
+// Copyright (c) 2025 NeiRo21
+
+export { Session, ISessionOptions } from "./Session";
 
 export * from "./defaultSession";
 

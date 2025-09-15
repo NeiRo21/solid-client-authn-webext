@@ -19,27 +19,53 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// Copyright (c) 2024 codecentric AG
+
+// Copyright (c) 2025 NeiRo21
+
 /**
  * @hidden
  * @packageDocumentation
  */
 
 import type {
+  IIncomingRedirectHandler,
   IRedirector,
   IRedirectorOptions,
+  ISessionInfo,
 } from "@inrupt/solid-client-authn-core";
+
+import { getUnauthenticatedSession } from "../../sessionInfo/SessionInfoManager";
+
+export type RedirectInfo = ISessionInfo & { fetch: typeof fetch };
+
+export type RedirectCallback = (info: RedirectInfo, error?: Error) => void;
 
 /**
  * @hidden
  */
 export default class Redirector implements IRedirector {
-  redirect(redirectUrl: string, options?: IRedirectorOptions): void {
-    if (options && options.handleRedirect) {
-      options.handleRedirect(redirectUrl);
-    } else if (options && options.redirectByReplacingState) {
-      window.history.replaceState({}, "", redirectUrl);
-    } else {
-      window.location.href = redirectUrl;
-    }
+  constructor(
+    private readonly redirectHandler: IIncomingRedirectHandler,
+    private readonly afterRedirect: RedirectCallback,
+  ) {
+    // nothing else to do
+  }
+
+  redirect(redirectUrl: string, _options?: IRedirectorOptions): void {
+    browser.identity
+      .launchWebAuthFlow({
+        url: redirectUrl,
+        interactive: true,
+      })
+      .then((url) => {
+        return this.redirectHandler.handle(url, undefined, undefined);
+      })
+      .then((sessionInfo) => {
+        this.afterRedirect(sessionInfo);
+      })
+      .catch((error) => {
+        this.afterRedirect(getUnauthenticatedSession(), error);
+      });
   }
 }

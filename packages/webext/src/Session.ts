@@ -19,6 +19,10 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// Copyright (c) 2024 codecentric AG
+
+// Copyright (c) 2025 NeiRo21
+
 /**
  * @hidden
  */
@@ -35,7 +39,7 @@ import { v4 } from "uuid";
 import EventEmitter from "events";
 import type ClientAuthentication from "./ClientAuthentication";
 import { getClientAuthenticationWithDependencies } from "./dependencies";
-import { KEY_CURRENT_SESSION, KEY_CURRENT_URL } from "./constant";
+import type { RedirectCallback, RedirectInfo } from "./login/oidc/Redirector";
 
 export interface ISessionOptions {
   /**
@@ -56,64 +60,6 @@ export interface ISessionOptions {
   clientAuthentication: ClientAuthentication;
 }
 
-export interface IHandleIncomingRedirectOptions {
-  /**
-   * If the user has signed in before, setting this to `true` will automatically
-   * redirect them to their Solid Identity Provider, which will then attempt to
-   * re-activate the session and send the user back to your app without
-   * requiring user interaction.
-   * If your app's access has not expired yet and re-activation completed
-   * successfully, a `sessionRestore` event will be fired with the URL the user
-   * was at before they were redirected to their Solid Identity Provider.
-   * See {@link ISessionEventListener}: a callback can be registered to
-   * `session.events.on(EVENTS.SESSION_RESTORED, callback)`.
-   */
-  restorePreviousSession?: boolean;
-
-  /**
-   * The URL of the page handling the redirect, including the query
-   * parameters — these contain the information to process the login.
-   * Note: as a convenience, if no URL value is specified here, we default to
-   * using the browser's current location.
-   */
-  url?: string;
-}
-
-export async function silentlyAuthenticate(
-  sessionId: string,
-  clientAuthn: ClientAuthentication,
-  session: Session,
-): Promise<boolean> {
-  const storedSessionInfo = await clientAuthn.validateCurrentSession(sessionId);
-  if (storedSessionInfo !== null) {
-    // It can be really useful to save the user's current browser location,
-    // so that we can restore it after completing the silent authentication
-    // on incoming redirect. This way, the user is eventually redirected back
-    // to the page they were on and not to the app's redirect page.
-    window.localStorage.setItem(KEY_CURRENT_URL, window.location.href);
-    await clientAuthn.login(
-      {
-        sessionId,
-        prompt: "none",
-        oidcIssuer: storedSessionInfo.issuer,
-        redirectUrl: storedSessionInfo.redirectUrl,
-        clientId: storedSessionInfo.clientAppId,
-        clientSecret: storedSessionInfo.clientAppSecret,
-        tokenType: storedSessionInfo.tokenType ?? "DPoP",
-      },
-      session.events,
-    );
-    return true;
-  }
-  return false;
-}
-
-function isLoggedIn(
-  sessionInfo?: ISessionInfo,
-): sessionInfo is ISessionInfo & { isLoggedIn: true } {
-  return !!sessionInfo?.isLoggedIn;
-}
-
 /**
  * A {@link Session} object represents a user's session on an application. The session holds state, as it stores information enabling access to private resources after login for instance.
  */
@@ -130,9 +76,13 @@ export class Session implements IHasSessionEventListener {
    */
   public readonly events: ISessionEventListener;
 
-  private clientAuthentication: ClientAuthentication;
+  private readonly clientAuthentication: ClientAuthentication;
 
-  private tokenRequestInProgress = false;
+  private resolveLogin: (value: PromiseLike<void> | void) => void = (
+    _value,
+  ) => {};
+
+  private rejectLogin: (reason?: Error) => void = (_reason) => {};
 
   /**
    * Session object constructor. Typically called as follows:
@@ -157,12 +107,18 @@ export class Session implements IHasSessionEventListener {
     if (sessionOptions.clientAuthentication) {
       this.clientAuthentication = sessionOptions.clientAuthentication;
     } else if (sessionOptions.secureStorage && sessionOptions.insecureStorage) {
-      this.clientAuthentication = getClientAuthenticationWithDependencies({
-        secureStorage: sessionOptions.secureStorage,
-        insecureStorage: sessionOptions.insecureStorage,
-      });
+      this.clientAuthentication = getClientAuthenticationWithDependencies(
+        this.redirectCallback,
+        {
+          secureStorage: sessionOptions.secureStorage,
+          insecureStorage: sessionOptions.insecureStorage,
+        },
+      );
     } else {
-      this.clientAuthentication = getClientAuthenticationWithDependencies({});
+      this.clientAuthentication = getClientAuthenticationWithDependencies(
+        this.redirectCallback,
+        {},
+      );
     }
 
     if (sessionOptions.sessionInfo) {
@@ -179,14 +135,6 @@ export class Session implements IHasSessionEventListener {
       };
     }
 
-    // When a session is logged in, we want to track its ID in local storage to
-    // enable silent refresh. The current session ID specifically stored in 'localStorage'
-    // (as opposed to using our storage abstraction layer) because it is only
-    // used in a browser-specific mechanism.
-    this.events.on(EVENTS.LOGIN, () =>
-      window.localStorage.setItem(KEY_CURRENT_SESSION, this.info.sessionId),
-    );
-
     this.events.on(EVENTS.SESSION_EXPIRED, () => this.internalLogout(false));
 
     this.events.on(EVENTS.ERROR, () => this.internalLogout(false));
@@ -196,25 +144,26 @@ export class Session implements IHasSessionEventListener {
    * Triggers the login process. Note that this method will redirect the user away from your app.
    *
    * @param options Parameter to customize the login behaviour. In particular, two options are mandatory: `options.oidcIssuer`, the user's identity provider, and `options.redirectUrl`, the URL to which the user will be redirected after logging in their identity provider.
-   * @returns This method should redirect the user away from the app: it does not return anything. The login process is completed by {@linkcode handleIncomingRedirect}.
+   * @returns TODO
    */
   // Define these functions as properties so that they don't get accidentally re-bound.
   // Isn't Javascript fun?
   login = async (options: ILoginInputOptions): Promise<void> => {
-    await this.clientAuthentication.login(
-      {
-        sessionId: this.info.sessionId,
-        ...options,
-        // Defaults the token type to DPoP
-        tokenType: options.tokenType ?? "DPoP",
-      },
-      this.events,
-    );
-    // `login` redirects the user away from the app,
-    // so unless it throws an error, there is no code that should run afterwards
-    // (since there is no "after" in the lifetime of the script).
-    // Hence, this Promise never resolves:
-    return new Promise(() => {});
+    return new Promise((resolve, reject) => {
+      this.resolveLogin = resolve;
+      this.rejectLogin = reject;
+      this.clientAuthentication
+        .login(
+          {
+            sessionId: this.info.sessionId,
+            ...options,
+            // Defaults the token type to DPoP
+            tokenType: options.tokenType ?? "DPoP",
+          },
+          this.events,
+        )
+        .catch((err) => reject(err));
+    });
   };
 
   /**
@@ -225,6 +174,23 @@ export class Session implements IHasSessionEventListener {
    */
   fetch: typeof fetch = (url, init) =>
     this.clientAuthentication.fetch(url, init);
+
+  private readonly redirectCallback: RedirectCallback = (
+    redirectInfo: RedirectInfo,
+    error?: Error,
+  ) => {
+    const { fetch, ...info } = redirectInfo;
+    this.setSessionInfo(info);
+    if (error) {
+      this.rejectLogin(error);
+    } else {
+      this.resolveLogin();
+    }
+    if (info.isLoggedIn) {
+      this.fetch = fetch.bind(window);
+      (this.events as EventEmitter).emit(EVENTS.LOGIN);
+    }
+  };
 
   /**
    * An internal logout function, to control whether or not the logout signal
@@ -237,12 +203,9 @@ export class Session implements IHasSessionEventListener {
     emitSignal: boolean,
     options?: ILogoutOptions,
   ): Promise<void> => {
-    // Clearing this value means that silent refresh will no longer be attempted.
-    // In particular, in the case of a silent authentication error it prevents
-    // from getting stuck in an authentication retries loop.
-    window.localStorage.removeItem(KEY_CURRENT_SESSION);
     await this.clientAuthentication.logout(this.info.sessionId, options);
     this.info.isLoggedIn = false;
+    this.fetch = (url, init) => this.clientAuthentication.fetch(url, init);
     if (emitSignal) {
       (this.events as EventEmitter).emit(EVENTS.LOGOUT);
     }
@@ -288,83 +251,16 @@ export class Session implements IHasSessionEventListener {
   logout = async (options?: ILogoutOptions): Promise<void> =>
     this.internalLogout(true, options);
 
-  /**
-   * Completes the login process by processing the information provided by the
-   * Solid identity provider through redirect.
-   *
-   * @param options See {@link IHandleIncomingRedirectOptions}.
-   */
-  handleIncomingRedirect = async (
-    inputOptions: string | IHandleIncomingRedirectOptions = {},
-  ): Promise<ISessionInfo | undefined> => {
-    if (this.info.isLoggedIn) {
-      return this.info;
-    }
-
-    if (this.tokenRequestInProgress) {
-      return undefined;
-    }
-    const options =
-      typeof inputOptions === "string" ? { url: inputOptions } : inputOptions;
-    const url = options.url ?? window.location.href;
-
-    this.tokenRequestInProgress = true;
-    const sessionInfo = await this.clientAuthentication.handleIncomingRedirect(
-      url,
-      this.events,
-    );
-    if (isLoggedIn(sessionInfo)) {
-      this.setSessionInfo(sessionInfo);
-      const currentUrl = window.localStorage.getItem(KEY_CURRENT_URL);
-      if (currentUrl === null) {
-        // The login event can only be triggered **after** the user has been
-        // redirected from the IdP with access and ID tokens.
-        (this.events as EventEmitter).emit(EVENTS.LOGIN);
-      } else {
-        // If an URL is stored in local storage, we are being logged in after a
-        // silent authentication, so remove our currently stored URL location
-        // to clean up our state now that we are completing the re-login process.
-        window.localStorage.removeItem(KEY_CURRENT_URL);
-        (this.events as EventEmitter).emit(EVENTS.SESSION_RESTORED, currentUrl);
-      }
-    } else if (options.restorePreviousSession === true) {
-      // Silent authentication happens after a refresh, which means there are no
-      // OAuth params in the current location IRI. It can only succeed if a session
-      // was previously logged in, in which case its ID will be present with a known
-      // identifier in local storage.
-      // Check if we have a locally stored session ID...
-      const storedSessionId = window.localStorage.getItem(KEY_CURRENT_SESSION);
-      // ...if not, then there is no ID token, and so silent authentication cannot happen, but
-      // if we do have a stored session ID, attempt to re-authenticate now silently.
-      if (storedSessionId !== null) {
-        const attemptedSilentAuthentication = await silentlyAuthenticate(
-          storedSessionId,
-          this.clientAuthentication,
-          this,
-        );
-        // At this point, we know that the main window will imminently be redirected.
-        // However, this redirect is asynchronous and there is no way to halt execution
-        // until it happens precisely. That's why the current Promise simply does not
-        // resolve.
-        if (attemptedSilentAuthentication) {
-          return new Promise(() => {});
-        }
-      }
-    }
-    this.tokenRequestInProgress = false;
-    return sessionInfo;
-  };
-
-  private setSessionInfo(
-    sessionInfo: ISessionInfo & { isLoggedIn: true },
-  ): void {
+  private setSessionInfo(sessionInfo: ISessionInfo): void {
     this.info.isLoggedIn = sessionInfo.isLoggedIn;
     this.info.webId = sessionInfo.webId;
     this.info.sessionId = sessionInfo.sessionId;
     this.info.clientAppId = sessionInfo.clientAppId;
     this.info.expirationDate = sessionInfo.expirationDate;
-    this.events.on(EVENTS.SESSION_EXTENDED, (expiresIn: number) => {
-      this.info.expirationDate = Date.now() + expiresIn * 1000;
-    });
+    if (this.info.isLoggedIn) {
+      this.events.on(EVENTS.SESSION_EXTENDED, (expiresIn: number) => {
+        this.info.expirationDate = Date.now() + expiresIn * 1000;
+      });
+    }
   }
 }

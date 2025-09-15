@@ -19,6 +19,8 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// Copyright (c) 2025 NeiRo21
+
 import { jest, it, describe, expect, beforeEach } from "@jest/globals";
 import { EventEmitter } from "events";
 import type * as SolidClientAuthnCore from "@inrupt/solid-client-authn-core";
@@ -26,22 +28,17 @@ import type * as SolidClientAuthnCore from "@inrupt/solid-client-authn-core";
 import {
   StorageUtility,
   USER_SESSION_PREFIX,
-  EVENTS,
 } from "@inrupt/solid-client-authn-core";
 
 import {
   mockStorageUtility,
   mockStorage,
   mockIncomingRedirectHandler,
-  mockHandleIncomingRedirect,
   mockLogoutHandler,
 } from "@inrupt/solid-client-authn-core/mocks";
 
 import { mockLoginHandler } from "./login/__mocks__/LoginHandler";
-import {
-  mockSessionInfoManager,
-  SessionCreatorCreateResponse,
-} from "./sessionInfo/__mocks__/SessionInfoManager";
+import { mockSessionInfoManager } from "./sessionInfo/__mocks__/SessionInfoManager";
 import ClientAuthentication from "./ClientAuthentication";
 import { mockDefaultIssuerConfigFetcher } from "./login/oidc/__mocks__/IssuerConfigFetcher";
 
@@ -118,32 +115,6 @@ describe("ClientAuthentication", () => {
   describe("login", () => {
     const mockEmitter = new EventEmitter();
     // TODO: add tests for events & errors
-
-    it("calls login, and uses the window.location.href for the redirect if no redirectUrl is set", async () => {
-      // Set a current window location which will be the expected URL to be
-      // redirected back to, since we don't pass redirectUrl:
-      window.location.href = "https://coolapp.test/some/redirect";
-
-      const clientAuthn = getClientAuthentication();
-      await clientAuthn.login(
-        {
-          sessionId: "mySession",
-          tokenType: "DPoP",
-          clientId: "coolApp",
-          oidcIssuer: "https://idp.com",
-        },
-        mockEmitter,
-      );
-      expect(defaultMocks.loginHandler.handle).toHaveBeenCalledWith({
-        sessionId: "mySession",
-        clientId: "coolApp",
-        redirectUrl: "https://coolapp.test/some/redirect",
-        oidcIssuer: "https://idp.com",
-        clientName: "coolApp",
-        eventEmitter: mockEmitter,
-        tokenType: "DPoP",
-      });
-    });
 
     it("calls login, and defaults to a DPoP token", async () => {
       const clientAuthn = getClientAuthentication();
@@ -259,6 +230,21 @@ describe("ClientAuthentication", () => {
       ).resolves.toBe("someValue");
     });
 
+    it("throws if the redirect IRI is undefined", async () => {
+      const clientAuthn = getClientAuthentication();
+      await expect(() =>
+        clientAuthn.login(
+          {
+            sessionId: "someUser",
+            tokenType: "DPoP",
+            clientId: "coolApp",
+            oidcIssuer: "https://idp.com",
+          },
+          mockEmitter,
+        ),
+      ).rejects.toThrow();
+    });
+
     it("throws if the redirect IRI is a malformed URL", async () => {
       const clientAuthn = getClientAuthentication();
       await expect(() =>
@@ -349,33 +335,21 @@ describe("ClientAuthentication", () => {
   });
 
   describe("logout", () => {
-    const mockEmitter = new EventEmitter();
-    // TODO: add tests for events & errors
-
-    it("reverts back to un-authenticated fetch on logout", async () => {
-      window.history.replaceState = jest
-        .fn<typeof window.history.replaceState>()
-        .mockImplementationOnce((_data, _unused, url) => {
-          // Pretend the current location is updated
-          window.location.href = url as string;
-        });
+    it("calls logout handler and restores fetch to unauthenticated version", async () => {
+      // Arrange
       const clientAuthn = getClientAuthentication();
 
-      const unauthFetch = clientAuthn.fetch;
-
-      const url =
-        "https://coolapp.com/redirect?state=userId&id_token=idToken&access_token=accessToken";
-      await clientAuthn.handleIncomingRedirect(url, mockEmitter);
-
-      // Calling the redirect handler should give us an authenticated fetch.
-      expect(clientAuthn.fetch).not.toBe(unauthFetch);
-
+      // Act
       await clientAuthn.logout("mySession");
       await clientAuthn.fetch("https://example.com", {
         credentials: "omit",
       });
-      // Calling logout should revert back to our un-authenticated fetch.
-      expect(clientAuthn.fetch).toBe(unauthFetch);
+
+      // Assert
+      expect(defaultMocks.logoutHandler.handle).toHaveBeenCalledWith(
+        "mySession",
+        undefined,
+      );
       expect(fetch).toHaveBeenCalledWith("https://example.com", {
         credentials: "omit",
       });
@@ -415,119 +389,6 @@ describe("ClientAuthentication", () => {
         isLoggedIn: true,
         tokenType: "DPoP",
       });
-    });
-  });
-
-  describe("handleIncomingRedirect", () => {
-    const mockEmitter = new EventEmitter();
-    mockEmitter.emit = jest.fn<typeof mockEmitter.emit>();
-
-    it("calls handle redirect", async () => {
-      window.history.replaceState = jest
-        .fn<typeof window.history.replaceState>()
-        .mockImplementationOnce((_data, _unused, url) => {
-          // Pretend the current location is updated
-          window.location.href = url as string;
-        });
-      const expectedResult = SessionCreatorCreateResponse;
-      const clientAuthn = getClientAuthentication();
-      const unauthFetch = clientAuthn.fetch;
-      const url =
-        "https://example.org/redirect?state=userId&id_token=idToken&access_token=accessToken";
-      const redirectInfo = await clientAuthn.handleIncomingRedirect(
-        url,
-        mockEmitter,
-      );
-
-      // Our injected mocked response may also contain internal-only data (for
-      // other tests), whereas our response from `handleIncomingRedirect()` can
-      // only contain publicly visible fields. So we need to explicitly check
-      // for individual fields (as opposed to just checking against
-      // entire-response-object-equality).
-      expect(redirectInfo?.sessionId).toEqual(expectedResult.sessionId);
-      expect(redirectInfo?.webId).toEqual(expectedResult.webId);
-      expect(redirectInfo?.isLoggedIn).toEqual(expectedResult.isLoggedIn);
-      expect(redirectInfo?.expirationDate).toEqual(
-        expectedResult.expirationDate,
-      );
-      expect(defaultMocks.redirectHandler.handle).toHaveBeenCalledWith(
-        url,
-        mockEmitter,
-        undefined,
-      );
-
-      // Calling the redirect handler should have updated the fetch.
-      expect(clientAuthn.fetch).not.toBe(unauthFetch);
-      expect(mockEmitter.emit).not.toHaveBeenCalled();
-    });
-
-    it("clears the current IRI from OAuth query parameters in the auth code flow", async () => {
-      window.history.replaceState = jest
-        .fn<typeof window.history.replaceState>()
-        .mockImplementationOnce((_data, _unused, url) => {
-          // Pretend the current location is updated
-          window.location.href = url as string;
-        });
-      const clientAuthn = getClientAuthentication();
-      const url =
-        "https://coolapp.com/redirect?state=someState&code=someAuthCode&iss=someIssuer";
-      await clientAuthn.handleIncomingRedirect(url, mockEmitter);
-      // eslint-disable-next-line no-restricted-globals
-      expect(history.replaceState).toHaveBeenCalledWith(
-        null,
-        "",
-        "https://coolapp.com/redirect",
-      );
-      expect(mockEmitter.emit).not.toHaveBeenCalled();
-    });
-
-    it("clears the current IRI from OAuth query parameters even if auth flow fails", async () => {
-      window.history.replaceState = jest
-        .fn<typeof window.history.replaceState>()
-        .mockImplementationOnce((_data, _unused, url) => {
-          // Pretend the current location is updated
-          window.location.href = url as string;
-        });
-
-      mockHandleIncomingRedirect.mockImplementationOnce(() =>
-        Promise.reject(new Error("Something went wrong")),
-      );
-
-      const clientAuthn = getClientAuthentication();
-
-      const url =
-        "https://coolapp.com/redirect?state=someState&code=someAuthCode";
-      await clientAuthn.handleIncomingRedirect(url, mockEmitter);
-      expect(window.history.replaceState).toHaveBeenCalledWith(
-        null,
-        "",
-        "https://coolapp.com/redirect",
-      );
-
-      expect(mockEmitter.emit).toHaveBeenCalledWith(
-        EVENTS.ERROR,
-        "redirect",
-        new Error("Something went wrong"),
-      );
-    });
-
-    it("preserves non-OAuth query strings", async () => {
-      window.history.replaceState = jest
-        .fn<typeof window.history.replaceState>()
-        .mockImplementationOnce((_data, _unused, url) => {
-          // Pretend the current location is updated
-          window.location.href = url as string;
-        });
-      const clientAuthn = getClientAuthentication();
-      const url =
-        "https://coolapp.com/redirect?state=someState&code=someAuthCode&someQuery=someValue";
-      await clientAuthn.handleIncomingRedirect(url, mockEmitter);
-      expect(window.history.replaceState).toHaveBeenCalledWith(
-        null,
-        "",
-        "https://coolapp.com/redirect?someQuery=someValue",
-      );
-      expect(mockEmitter.emit).not.toHaveBeenCalled();
     });
   });
 

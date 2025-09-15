@@ -19,12 +19,13 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// Copyright (c) 2025 NeiRo21
+
 import { EVENTS } from "@inrupt/solid-client-authn-core";
 import { jest, it, expect } from "@jest/globals";
 import {
   fetch,
   getDefaultSession,
-  handleIncomingRedirect,
   login,
   logout,
   events,
@@ -66,9 +67,6 @@ it("all functions pass on their arguments to the default session", () => {
   defaultSession.login = loginSpy as typeof defaultSession.login;
   const logoutSpy = jest.fn();
   defaultSession.logout = logoutSpy as typeof defaultSession.logout;
-  const handleIncomingRedirectSpy = jest.fn();
-  defaultSession.handleIncomingRedirect =
-    handleIncomingRedirectSpy as typeof defaultSession.handleIncomingRedirect;
   const eventsOnSpy = jest.spyOn(defaultSession.events, "on");
 
   expect(fetchSpy).not.toHaveBeenCalled();
@@ -85,11 +83,6 @@ it("all functions pass on their arguments to the default session", () => {
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   logout();
   expect(logoutSpy).toHaveBeenCalledTimes(1);
-
-  expect(handleIncomingRedirectSpy).not.toHaveBeenCalled();
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
-  handleIncomingRedirect("https://example.com");
-  expect(handleIncomingRedirectSpy).toHaveBeenCalledTimes(1);
 
   // onLogin will internall call events.on(...), so the following test
   // must come first.

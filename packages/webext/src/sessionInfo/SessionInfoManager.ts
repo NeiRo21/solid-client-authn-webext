@@ -140,7 +140,6 @@ export class SessionInfoManager
   /**
    * This function removes all session-related information from storage.
    * @param sessionId the session identifier
-   * @param storage the storage where session info is stored
    * @hidden
    */
   async clear(sessionId: string): Promise<void> {

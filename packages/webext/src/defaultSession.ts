@@ -19,6 +19,8 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// Copyright (c) 2025 NeiRo21
+
 import { Session } from "./Session";
 
 let defaultSession: Session | undefined;
@@ -27,8 +29,7 @@ let defaultSession: Session | undefined;
  * Obtain the {@link Session} used when not explicitly instantiating one yourself.
  *
  * When using the top-level exports {@link fetch}, {@link login}, {@link logout},
- * {@link handleIncomingRedirect}, {@link onLogin} and {@link onLogout}, these apply to an
- * implicitly-instantiated {@link Session}.
+ * these apply to an implicitly-instantiated {@link Session}.
  * This function returns a reference to that Session in order to obtain e.g. the current user's
  * WebID.
  * @since 1.3.0
@@ -57,8 +58,8 @@ export const fetch: Session["fetch"] = (...args) => {
 /**
  * Triggers the login process. Note that this method will redirect the user away from your app.
  *
- * @param options Parameter to customize the login behaviour. In particular, two options are mandatory: `options.oidcIssuer`, the user's identity provider, and `options.redirectUrl`, the URL to which the user will be redirected after logging in their identity provider.
- * @returns This method should redirect the user away from the app: it does not return anything. The login process is completed by [[handleIncomingRedirect]].
+ * @param args
+ * @returns TODO
  * @since 1.3.0
  */
 export const login: Session["login"] = (...args) => {
@@ -81,20 +82,7 @@ export const logout: Session["logout"] = (...args) => {
 };
 
 /**
- * Completes the login process by processing the information provided by the Solid identity provider through redirect.
- *
- * @param url The URL of the page handling the redirect, including the query parameters — these contain the information to process the login.
- * @since 1.3.0
- */
-export const handleIncomingRedirect: Session["handleIncomingRedirect"] = (
-  ...args
-) => {
-  const session = getDefaultSession();
-  return session.handleIncomingRedirect(...args);
-};
-
-/**
- * {@link SessionEventEmitter} instance to subscribe to events by the default session.
+ * {@link ISessionEventEmitter} instance to subscribe to events by the default session.
  *
  * @since 1.14.0
  */

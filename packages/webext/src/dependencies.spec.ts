@@ -19,21 +19,31 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// Copyright (c) 2025 NeiRo21
+
 import { describe, it, expect } from "@jest/globals";
 import { mockStorageUtility } from "@inrupt/solid-client-authn-core";
 import { getClientAuthenticationWithDependencies } from "./dependencies";
 import ClientAuthentication from "./ClientAuthentication";
 
+const mockRedirectCallback = jest.fn();
+
 describe("dependencies", () => {
   it("performs dependency injection", () => {
-    const clientAuthn = getClientAuthenticationWithDependencies({});
+    const clientAuthn = getClientAuthenticationWithDependencies(
+      mockRedirectCallback,
+      {},
+    );
     expect(clientAuthn).toBeInstanceOf(ClientAuthentication);
   });
 
   it("performs dependency injection with a given input", () => {
-    const clientAuthn = getClientAuthenticationWithDependencies({
-      secureStorage: mockStorageUtility({}),
-    });
+    const clientAuthn = getClientAuthenticationWithDependencies(
+      mockRedirectCallback,
+      {
+        secureStorage: mockStorageUtility({}),
+      },
+    );
     expect(clientAuthn).toBeInstanceOf(ClientAuthentication);
   });
 });
