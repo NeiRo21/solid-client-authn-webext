@@ -28,7 +28,6 @@
     "excludeNotDocumented": false,
     "excludePrivate": true,
     "excludeInternal": true,
-    "theme": "markdown",
     "readme": "none"
   }
 }
