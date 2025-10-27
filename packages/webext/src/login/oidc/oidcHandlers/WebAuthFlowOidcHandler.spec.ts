@@ -20,26 +20,22 @@
 //
 
 import { jest, it, describe, expect, beforeEach } from "@jest/globals";
-import mockConsole from "jest-mock-console";
 
 /**
- * Test for AuthorizationCodeWithPkceOidcHandler
+ * Test for WebAuthFlowOidcHandler
  */
-import type {
-  IOidcOptions,
-  IRedirectorOptions,
-} from "@inrupt/solid-client-authn-core";
+import type { IOidcOptions } from "@inrupt/solid-client-authn-core";
 import { StorageUtility } from "@inrupt/solid-client-authn-core";
 import {
   StorageUtilityMock,
+  mockIncomingRedirectHandler,
   mockStorage,
 } from "@inrupt/solid-client-authn-core/mocks";
 
-import AuthorizationCodeWithPkceOidcHandler from "./AuthorizationCodeWithPkceOidcHandler";
+import WebAuthFlowOidcHandler from "./WebAuthFlowOidcHandler";
 import canHandleTests from "./OidcHandlerCanHandleTest";
 import { mockSessionInfoManager } from "../../../sessionInfo/__mocks__/SessionInfoManager";
 import { standardOidcOptions } from "../__mocks__/IOidcOptions";
-import { mockedRedirector, mockRedirector } from "../__mocks__/Redirector";
 
 jest.mock("@inrupt/oidc-client-ext", () => {
   return {
@@ -47,12 +43,10 @@ jest.mock("@inrupt/oidc-client-ext", () => {
   };
 });
 
-const expectedSigninRedirectUrl = "https://test";
+const SIGNIN_URL = "https://someUrl.com/signin";
+const EXPECTED_SIGNIN_REDIRECT_URL = "https://someUrl.com/redirect";
 
-const mockOidcModule = (
-  url: string = expectedSigninRedirectUrl,
-  state = "test state",
-) => {
+const mockOidcModule = (url: string = SIGNIN_URL, state = "test state") => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const oidcModule = jest.requireMock("@inrupt/oidc-client-ext") as any;
   oidcModule.OidcClient.mockReturnValue({
@@ -66,89 +60,71 @@ const mockOidcModule = (
   return oidcModule;
 };
 
-describe("AuthorizationCodeWithPkceOidcHandler", () => {
+jest
+  .spyOn(globalThis.browser.identity, "launchWebAuthFlow")
+  .mockResolvedValue(EXPECTED_SIGNIN_REDIRECT_URL);
+
+describe("WebAuthFlowOidcHandler", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   const defaultMocks = {
+    redirectHandler: mockIncomingRedirectHandler(),
     sessionCreator: mockSessionInfoManager(StorageUtilityMock),
     storageUtility: StorageUtilityMock,
-    redirector: mockRedirector(),
   };
 
-  function getAuthorizationCodeWithPkceOidcHandler(
+  function getWebAuthFlowOidcHandler(
     mocks: Partial<typeof defaultMocks> = defaultMocks,
-  ): AuthorizationCodeWithPkceOidcHandler {
-    return new AuthorizationCodeWithPkceOidcHandler(
+  ): WebAuthFlowOidcHandler {
+    return new WebAuthFlowOidcHandler(
+      mocks.redirectHandler ?? defaultMocks.redirectHandler,
       mocks.storageUtility ?? defaultMocks.storageUtility,
-      mocks.redirector ?? defaultMocks.redirector,
     );
   }
 
   describe("canHandle", () => {
-    const authorizationCodeWithPkceOidcHandler =
-      getAuthorizationCodeWithPkceOidcHandler();
-    canHandleTests.authorizationCodeWithPkceOidcHandler.forEach(
-      (testConfig) => {
-        // eslint-disable-next-line jest/valid-title
-        it(testConfig.message, async () => {
-          const value = await authorizationCodeWithPkceOidcHandler.canHandle(
-            testConfig.oidcOptions,
-          );
-          expect(value).toBe(testConfig.shouldPass);
-        });
-      },
-    );
+    const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
+    canHandleTests.webAuthFlowOidcHandler.forEach((testConfig) => {
+      // eslint-disable-next-line jest/valid-title
+      it(testConfig.message, async () => {
+        const value = await webAuthFlowOidcHandler.canHandle(
+          testConfig.oidcOptions,
+        );
+        expect(value).toBe(testConfig.shouldPass);
+      });
+    });
   });
 
   describe("handle", () => {
-    it("swallows any redirector exceptions", async () => {
+    it("should launch OAuth1 authentication flow with PKCE", async () => {
+      // Arrange
       mockOidcModule();
-      mockConsole("error");
-
-      mockedRedirector.mockImplementationOnce(
-        (redirectUrl: string, redirectOptions: IRedirectorOptions) => {
-          throw new Error(
-            `Redirecting to [${redirectUrl}] with options [${redirectOptions}] throws...`,
-          );
-        },
-      );
-
-      const authorizationCodeWithPkceOidcHandler =
-        getAuthorizationCodeWithPkceOidcHandler();
-
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
       const oidcOptions: IOidcOptions = {
         ...standardOidcOptions,
-        // Set this to test this code path too (doesn't warrant a whole test!).
-        dpop: false,
         issuerConfiguration: {
           ...standardOidcOptions.issuerConfiguration,
           grantTypesSupported: ["authorization_code"],
         },
       };
 
-      await expect(
-        authorizationCodeWithPkceOidcHandler.handle(oidcOptions),
-      ).resolves.toBeUndefined();
+      // Act
+      await webAuthFlowOidcHandler.handle(oidcOptions);
 
-      expect(mockedRedirector).toHaveBeenCalledTimes(1);
-
-      // Test the error was even printed to the console Note: this matcher is
-      // pretty nasty due to an Error instance being logged without being
-      // converted to a string:
-
-      // eslint-disable-next-line no-console
-      expect(console.error).toHaveBeenCalledTimes(1);
-      expect(
-        (console as jest.Mocked<Console>).error.mock.calls[0][0].toString(),
-      ).toMatch(/Error: Redirecting to \[[^\]]+\] with options/);
+      // Assert
+      expect(browser.identity.launchWebAuthFlow).toHaveBeenCalledTimes(1);
+      expect(browser.identity.launchWebAuthFlow).toHaveBeenCalledWith({
+        url: SIGNIN_URL,
+        interactive: true,
+      });
     });
 
-    it("handles login properly with PKCE", async () => {
+    it("should call redirect handler when auth flow succeeds", async () => {
+      // Arrange
       mockOidcModule();
-      const authorizationCodeWithPkceOidcHandler =
-        getAuthorizationCodeWithPkceOidcHandler();
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
       const oidcOptions: IOidcOptions = {
         ...standardOidcOptions,
         issuerConfiguration: {
@@ -156,13 +132,39 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
           grantTypesSupported: ["authorization_code"],
         },
       };
-      await authorizationCodeWithPkceOidcHandler.handle(oidcOptions);
-      expect(defaultMocks.redirector.redirect).toHaveBeenCalledWith(
-        expectedSigninRedirectUrl,
-        {
-          handleRedirect: standardOidcOptions.handleRedirect,
-        },
+
+      // Act
+      await webAuthFlowOidcHandler.handle(oidcOptions);
+
+      // Assert
+      expect(defaultMocks.redirectHandler.handle).toHaveBeenCalledWith(
+        EXPECTED_SIGNIN_REDIRECT_URL,
+        undefined,
+        undefined,
       );
+    });
+
+    it("should not call redirect handler and return rejected promise when auth flow fails with error", async () => {
+      // Arrange
+      jest
+        .spyOn(browser.identity, "launchWebAuthFlow")
+        .mockRejectedValueOnce("test error");
+
+      mockOidcModule();
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
+      const oidcOptions: IOidcOptions = {
+        ...standardOidcOptions,
+        issuerConfiguration: {
+          ...standardOidcOptions.issuerConfiguration,
+          grantTypesSupported: ["authorization_code"],
+        },
+      };
+
+      // Act & Assert
+      await expect(webAuthFlowOidcHandler.handle(oidcOptions)).rejects.toBe(
+        "test error",
+      );
+      expect(defaultMocks.redirectHandler.handle).toHaveBeenCalledTimes(0);
     });
 
     it("stores code verifier and redirect URL", async () => {
@@ -171,10 +173,9 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
         mockStorage({}),
         mockStorage({}),
       );
-      const authorizationCodeWithPkceOidcHandler =
-        getAuthorizationCodeWithPkceOidcHandler({
-          storageUtility: mockedStorage,
-        });
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler({
+        storageUtility: mockedStorage,
+      });
       const oidcOptions: IOidcOptions = {
         ...standardOidcOptions,
         redirectUrl: "https://app.example.com?someQuery=someValue",
@@ -183,7 +184,7 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
           grantTypesSupported: ["authorization_code"],
         },
       };
-      await authorizationCodeWithPkceOidcHandler.handle(oidcOptions);
+      await webAuthFlowOidcHandler.handle(oidcOptions);
       await expect(
         mockedStorage.getForUser("mySession", "redirectUrl", {
           secure: false,
@@ -198,8 +199,7 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
 
     it("passes on the 'prompt' option down to our OIDC client library implementation", async () => {
       const oidcModule = mockOidcModule();
-      const authorizationCodeWithPkceOidcHandler =
-        getAuthorizationCodeWithPkceOidcHandler();
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
       const oidcOptions: IOidcOptions = {
         prompt: "none",
         ...standardOidcOptions,
@@ -208,7 +208,7 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
           grantTypesSupported: ["authorization_code"],
         },
       };
-      await authorizationCodeWithPkceOidcHandler.handle(oidcOptions);
+      await webAuthFlowOidcHandler.handle(oidcOptions);
       expect(oidcModule.OidcClient).toHaveBeenCalledWith(
         expect.objectContaining({
           prompt: "none",
@@ -218,8 +218,7 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
 
     it("defaults the 'prompt' option to consent", async () => {
       const oidcModule = mockOidcModule();
-      const authorizationCodeWithPkceOidcHandler =
-        getAuthorizationCodeWithPkceOidcHandler();
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
       const oidcOptions: IOidcOptions = {
         ...standardOidcOptions,
         issuerConfiguration: {
@@ -227,7 +226,7 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
           grantTypesSupported: ["authorization_code"],
         },
       };
-      await authorizationCodeWithPkceOidcHandler.handle(oidcOptions);
+      await webAuthFlowOidcHandler.handle(oidcOptions);
       expect(oidcModule.OidcClient).toHaveBeenCalledWith(
         expect.objectContaining({
           prompt: "consent",
@@ -237,8 +236,7 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
 
     it("includes the provided scopes in the authorization request", async () => {
       const oidcModule = mockOidcModule();
-      const authorizationCodeWithPkceOidcHandler =
-        getAuthorizationCodeWithPkceOidcHandler();
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
       const oidcOptions: IOidcOptions = {
         ...standardOidcOptions,
         issuerConfiguration: {
@@ -247,7 +245,7 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
         },
         scopes: ["openid", "webid", "custom_scope"],
       };
-      await authorizationCodeWithPkceOidcHandler.handle(oidcOptions);
+      await webAuthFlowOidcHandler.handle(oidcOptions);
       expect(oidcModule.OidcClient).toHaveBeenCalledWith(
         expect.objectContaining({
           scope: "openid webid custom_scope",
@@ -256,9 +254,9 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
     });
 
     it("handles login when a client secret is present", async () => {
+      // Arrange
       mockOidcModule();
-      const authorizationCodeWithPkceOidcHandler =
-        getAuthorizationCodeWithPkceOidcHandler();
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
       const oidcOptions: IOidcOptions = {
         ...standardOidcOptions,
         client: {
@@ -272,13 +270,43 @@ describe("AuthorizationCodeWithPkceOidcHandler", () => {
           grantTypesSupported: ["authorization_code"],
         },
       };
-      await authorizationCodeWithPkceOidcHandler.handle(oidcOptions);
-      expect(defaultMocks.redirector.redirect).toHaveBeenCalledWith(
-        expectedSigninRedirectUrl,
-        {
-          handleRedirect: standardOidcOptions.handleRedirect,
+
+      // Act
+      await webAuthFlowOidcHandler.handle(oidcOptions);
+
+      // Assert
+      expect(browser.identity.launchWebAuthFlow).toHaveBeenCalledTimes(1);
+      expect(browser.identity.launchWebAuthFlow).toHaveBeenCalledWith({
+        url: SIGNIN_URL,
+        interactive: true,
+      });
+    });
+
+    it("should return rejected promise when redirect url is missing", async () => {
+      // Arrange
+      mockOidcModule();
+      const webAuthFlowOidcHandler = getWebAuthFlowOidcHandler();
+      const oidcOptions: IOidcOptions = {
+        ...standardOidcOptions,
+        issuerConfiguration: {
+          ...standardOidcOptions.issuerConfiguration,
+          grantTypesSupported: ["authorization_code"],
         },
+        redirectUrl: undefined,
+      };
+
+      // Act
+      const result = webAuthFlowOidcHandler.handle(oidcOptions);
+
+      // Assert
+      await expect(result).rejects.toBeInstanceOf(Error);
+      await expect(result).rejects.toHaveProperty(
+        "message",
+        "The authorization code grant requires a redirectUrl.",
       );
+
+      expect(browser.identity.launchWebAuthFlow).toHaveBeenCalledTimes(0);
+      expect(defaultMocks.redirectHandler.handle).toHaveBeenCalledTimes(0);
     });
   });
 });

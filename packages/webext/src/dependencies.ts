@@ -50,26 +50,21 @@
  * @packageDocumentation
  */
 
-/**
- * Top Level core document. Responsible for setting up the dependency graph
- */
 import type { IStorage } from "@inrupt/solid-client-authn-core";
 import {
   InMemoryStorage,
-  IWaterfallLogoutHandler,
+  GeneralLogoutHandler,
 } from "@inrupt/solid-client-authn-core";
 import StorageUtilityBrowser from "./storage/StorageUtility";
 import ClientAuthentication from "./ClientAuthentication";
 import OidcLoginHandler from "./login/oidc/OidcLoginHandler";
-import AuthorizationCodeWithPkceOidcHandler from "./login/oidc/oidcHandlers/AuthorizationCodeWithPkceOidcHandler";
+import WebAuthFlowOidcHandler from "./login/oidc/oidcHandlers/WebAuthFlowOidcHandler";
 import IssuerConfigFetcher from "./login/oidc/IssuerConfigFetcher";
 import { FallbackRedirectHandler } from "./login/oidc/incomingRedirectHandler/FallbackRedirectHandler";
 import { SessionInfoManager } from "./sessionInfo/SessionInfoManager";
 import { AuthCodeRedirectHandler } from "./login/oidc/incomingRedirectHandler/AuthCodeRedirectHandler";
 import AggregateRedirectHandler from "./login/oidc/AggregateRedirectHandler";
 import BrowserStorage from "./storage/BrowserStorage";
-import type { RedirectCallback } from "./login/oidc/Redirector";
-import Redirector from "./login/oidc/Redirector";
 import ClientRegistrar from "./login/oidc/ClientRegistrar";
 import { ErrorOidcHandler } from "./login/oidc/incomingRedirectHandler/ErrorOidcHandler";
 import TokenRefresher from "./login/oidc/refresh/TokenRefresher";
@@ -79,13 +74,10 @@ import TokenRefresher from "./login/oidc/refresh/TokenRefresher";
  * @param dependencies
  * @hidden
  */
-export function getClientAuthenticationWithDependencies(
-  redirectCallback: RedirectCallback,
-  dependencies: {
-    secureStorage?: IStorage;
-    insecureStorage?: IStorage;
-  },
-): ClientAuthentication {
+export function getClientAuthenticationWithDependencies(dependencies: {
+  secureStorage?: IStorage;
+  insecureStorage?: IStorage;
+}): ClientAuthentication {
   const inMemoryStorage = new InMemoryStorage();
   const secureStorage = dependencies.secureStorage || inMemoryStorage;
   const insecureStorage = dependencies.insecureStorage || new BrowserStorage();
@@ -120,12 +112,10 @@ export function getClientAuthenticationWithDependencies(
     new FallbackRedirectHandler(),
   ]);
 
-  const redirector = new Redirector(redirectHandler, redirectCallback);
-
   // make new handler for redirect and login
   const loginHandler = new OidcLoginHandler(
     storageUtility,
-    new AuthorizationCodeWithPkceOidcHandler(storageUtility, redirector),
+    new WebAuthFlowOidcHandler(redirectHandler, storageUtility),
     issuerConfigFetcher,
     clientRegistrar,
   );
@@ -133,7 +123,7 @@ export function getClientAuthenticationWithDependencies(
   return new ClientAuthentication(
     loginHandler,
     redirectHandler,
-    new IWaterfallLogoutHandler(sessionInfoManager, redirector),
+    new GeneralLogoutHandler(sessionInfoManager),
     sessionInfoManager,
     issuerConfigFetcher,
   );

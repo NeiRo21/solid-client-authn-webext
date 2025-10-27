@@ -29,7 +29,7 @@ const canHandleTests: {
     shouldPass: boolean;
   }[];
 } = {
-  authorizationCodeWithPkceOidcHandler: [
+  webAuthFlowOidcHandler: [
     {
       message:
         "should accept a configuration with many grant types including authorization code",

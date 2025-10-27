@@ -26,7 +26,7 @@ import type {
 } from "@inrupt/solid-client-authn-core";
 import { jest } from "@jest/globals";
 
-export const LoginHandlerResponse: ISessionInfo = {
+export const MockLoginHandlerResponse: ISessionInfo = {
   isLoggedIn: false,
   sessionId: "global",
 };
@@ -34,6 +34,11 @@ export const LoginHandlerResponse: ISessionInfo = {
 export const mockLoginHandler = (): ILoginHandler => {
   return {
     canHandle: jest.fn((_options: ILoginOptions) => Promise.resolve(true)),
-    handle: jest.fn((_options: ILoginOptions) => Promise.resolve(undefined)),
+    handle: jest.fn((_options: ILoginOptions) =>
+      Promise.resolve({
+        ...MockLoginHandlerResponse,
+        fetch: globalThis.fetch,
+      }),
+    ),
   };
 };

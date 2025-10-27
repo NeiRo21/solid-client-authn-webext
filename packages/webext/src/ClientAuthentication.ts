@@ -31,10 +31,7 @@ import type {
   ISessionInternalInfo,
   ILoginOptions,
 } from "@inrupt/solid-client-authn-core";
-import {
-  isValidRedirectUrl,
-  ClientAuthentication as ClientAuthenticationBase,
-} from "@inrupt/solid-client-authn-core";
+import { ClientAuthentication as ClientAuthenticationBase } from "@inrupt/solid-client-authn-core";
 import type { EventEmitter } from "events";
 
 /**
@@ -46,28 +43,27 @@ export default class ClientAuthentication extends ClientAuthenticationBase {
   login = async (
     options: ILoginOptions,
     eventEmitter: EventEmitter,
-  ): Promise<void> => {
-    // In order to get a clean start, make sure that the session is logged out
-    // on login, except when doing a silent login so that Dynamic Client information
-    // is preserved.
+  ): Promise<ISessionInfo> => {
     if (options.prompt !== "none") {
       await this.sessionInfoManager.clear(options.sessionId);
     }
 
-    if (
-      options.redirectUrl === undefined ||
-      !isValidRedirectUrl(options.redirectUrl)
-    ) {
-      throw new Error(
-        `${options.redirectUrl} is not a valid redirect URL, it is either a malformed IRI, includes a hash fragment, or reserved query parameters ('code' or 'state').`,
-      );
-    }
-    await this.loginHandler.handle({
-      ...options,
-      // If no clientName is provided, the clientId may be used instead.
-      clientName: options.clientName ?? options.clientId,
-      eventEmitter,
-    });
+    return this.loginHandler
+      .handle({
+        ...options,
+        redirectUrl: browser.identity.getRedirectURL(),
+        clientName: options.clientName ?? options.clientId,
+        eventEmitter,
+      })
+      .then((loginResult) => {
+        if (!loginResult) {
+          throw new Error("Unexpected login failure: no session info returned");
+        }
+
+        const { fetch, ...info } = loginResult;
+        this.fetch = fetch.bind(window);
+        return info;
+      });
   };
 
   // Collects session information from storage, and returns them. Returns null

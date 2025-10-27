@@ -6,6 +6,6 @@
     "outDir": "./dist"
   },
 
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tsconfig.eslint.json"],
   "exclude": ["src/**/*.spec.ts", "**/__mocks__/*"]
 }

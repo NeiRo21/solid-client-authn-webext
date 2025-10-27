@@ -23,13 +23,21 @@
 
 import { jest, it, describe, expect } from "@jest/globals";
 import { EVENTS } from "@inrupt/solid-client-authn-core";
+import type { ISessionInfo } from "@inrupt/solid-client-authn-core";
 import { mockStorage } from "@inrupt/solid-client-authn-core/mocks";
+import type EventEmitter from "events";
 import { mockClientAuthentication } from "./__mocks__/ClientAuthentication";
 import { Session } from "./Session";
+import type ClientAuthentication from "./ClientAuthentication";
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 
 jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response());
+
+const TEST_REDIRECT_URL = "https://coolapp.com/redirect";
+jest
+  .spyOn(globalThis.browser.identity, "getRedirectURL")
+  .mockReturnValue(TEST_REDIRECT_URL);
 
 describe("Session", () => {
   describe("constructor", () => {
@@ -92,57 +100,65 @@ describe("Session", () => {
   });
 
   describe("login", () => {
-    it("wraps up ClientAuthentication login", () => {
-      const clientAuthentication = mockClientAuthentication();
-      const clientAuthnLogin = jest.spyOn(clientAuthentication, "login");
-      const mySession = new Session({ clientAuthentication });
-      // login never resolves if there are no errors,
-      // because a login redirects the user away from the page:
-      // eslint-disable-next-line no-void
-      void mySession.login({
-        redirectUrl: "https://idp.com",
+    const mockLoggedInSessionInfo: ISessionInfo = {
+      isLoggedIn: true,
+      sessionId: "test-session-id",
+      webId: "https://pod.example.com/profile#me",
+      clientAppId: "my-client-app-id",
+      expirationDate: 1234567890,
+    };
+
+    const mockLoggedOutSessionInfo: ISessionInfo = {
+      isLoggedIn: false,
+      sessionId: "another-test-session-id",
+      clientAppId: "my-other-client-app-id",
+    };
+
+    it.each([mockLoggedInSessionInfo, mockLoggedOutSessionInfo])(
+      "returns resolved Promise when login process completes and updates session info acccordingly",
+      async (resultingSessionInfo) => {
+        // Arrange
+        const mockClientAuth = {
+          login: jest.fn(() => Promise.resolve(resultingSessionInfo)),
+        };
+
+        const testSession = new Session({
+          clientAuthentication: mockClientAuth as any as ClientAuthentication,
+        });
+
+        // Act & Assert
+        await expect(testSession.login({})).resolves.toBeUndefined();
+
+        expect(testSession.info).toEqual(resultingSessionInfo);
+      },
+    );
+
+    it("returns rejected Promise when login fails with error", async () => {
+      // Arrange
+      const testError = new Error("Login failed");
+      const mockClientAuth = {
+        login: jest.fn(() => Promise.reject(testError)),
+        logout: jest.fn(),
+      };
+
+      const testSession = new Session({
+        clientAuthentication: mockClientAuth as any as ClientAuthentication,
       });
-      expect(clientAuthnLogin).toHaveBeenCalledWith(
-        expect.objectContaining({
-          redirectUrl: "https://idp.com",
-        }),
-        mySession.events,
-      );
+
+      // Act & Assert
+      await expect(testSession.login({})).rejects.toThrow("Login failed");
+
+      expect(testSession.info.isLoggedIn).toBe(false);
     });
 
-    it("Uses the token type provided (if any)", () => {
-      const clientAuthentication = mockClientAuthentication();
-      const clientAuthnLogin = jest.spyOn(clientAuthentication, "login");
-      const mySession = new Session({ clientAuthentication });
-      // login never resolves if there are no errors,
-      // because a login redirects the user away from the page:
-      // eslint-disable-next-line no-void
-      void mySession.login({
-        redirectUrl: "https://idp.com",
-        tokenType: "Bearer",
-      });
-      expect(clientAuthnLogin).toHaveBeenCalledWith(
-        expect.objectContaining({
-          redirectUrl: "https://idp.com",
-          tokenType: "Bearer",
-        }),
-        mySession.events,
-      );
-    });
-
-    it("preserves a binding to its Session instance", () => {
+    it("preserves a binding to its Session instance", async () => {
       const clientAuthentication = mockClientAuthentication();
       const clientAuthnLogin = jest.spyOn(clientAuthentication, "login");
       const mySession = new Session({ clientAuthentication });
       const objectWithLogin = {
         login: mySession.login,
       };
-      // login never resolves if there are no errors,
-      // because a login redirects the user away from the page:
-      // eslint-disable-next-line no-void
-      void objectWithLogin.login({
-        redirectUrl: "https://idp.com",
-      });
+      await objectWithLogin.login({});
       expect(clientAuthnLogin).toHaveBeenCalled();
     });
   });
@@ -207,6 +223,78 @@ describe("Session", () => {
   });
 
   describe("events.on", () => {
+    describe("login", () => {
+      it("calls the registered callback on successful login", async () => {
+        // Arrange
+        const mockSessionInfo: ISessionInfo = {
+          isLoggedIn: true,
+          sessionId: "test-session-id",
+        };
+
+        const mockClientAuth = {
+          login: jest.fn(() => Promise.resolve(mockSessionInfo)),
+        };
+
+        const testSession = new Session({
+          clientAuthentication: mockClientAuth as any as ClientAuthentication,
+        });
+
+        const mockCallback = jest.fn();
+        testSession.events.on(EVENTS.LOGIN, mockCallback);
+
+        // Act
+        await testSession.login({});
+
+        // Assert
+        expect(mockCallback).toHaveBeenCalled();
+      });
+
+      it("does not call the registered callback on unsuccessful login", async () => {
+        // Arrange
+        const mockSessionInfo: ISessionInfo = {
+          isLoggedIn: false,
+          sessionId: "test-session-id",
+        };
+
+        const mockClientAuth = {
+          login: jest.fn(() => Promise.resolve(mockSessionInfo)),
+        };
+
+        const testSession = new Session({
+          clientAuthentication: mockClientAuth as any as ClientAuthentication,
+        });
+
+        const mockCallback = jest.fn();
+        testSession.events.on(EVENTS.LOGIN, mockCallback);
+
+        // Act
+        await testSession.login({});
+
+        // Assert
+        expect(mockCallback).not.toHaveBeenCalled();
+      });
+
+      it("calls the registered callback on login error", async () => {
+        // Arrange
+        const loginError = new Error("Test error");
+        const mockClientAuth = {
+          login: jest.fn(() => Promise.reject(loginError)),
+          logout: jest.fn(),
+        };
+
+        const mySession = new Session({
+          clientAuthentication: mockClientAuth as any,
+        });
+
+        const mockCallback = jest.fn();
+        mySession.events.on(EVENTS.ERROR, mockCallback);
+
+        // Act & Assert
+        await expect(mySession.login({})).rejects.toThrow("Test error");
+        expect(mockCallback).toHaveBeenCalledWith("login", loginError);
+      });
+    });
+
     describe("logout", () => {
       it("calls the registered callback on logout", async () => {
         const myCallback = jest.fn();
@@ -217,6 +305,78 @@ describe("Session", () => {
         mySession.events.on(EVENTS.LOGOUT, myCallback);
         await mySession.logout();
         expect(myCallback).toHaveBeenCalled();
+      });
+    });
+
+    describe("session expiration", () => {
+      it("calls logout on session expiration", () => {
+        // Arrange
+        const mockClientAuth = {
+          logout: jest.fn(),
+        };
+
+        const testSession = new Session({
+          clientAuthentication: mockClientAuth as any as ClientAuthentication,
+        });
+
+        // Act
+        (testSession.events as EventEmitter).emit(EVENTS.SESSION_EXPIRED);
+
+        // Assert
+        expect(mockClientAuth.logout).toHaveBeenCalled();
+      });
+    });
+
+    describe("error", () => {
+      it("calls logout on error", () => {
+        // Arrange
+        const mockClientAuth = {
+          logout: jest.fn(),
+        };
+
+        const testSession = new Session({
+          clientAuthentication: mockClientAuth as any as ClientAuthentication,
+        });
+
+        // Act
+        (testSession.events as EventEmitter).emit(
+          EVENTS.ERROR,
+          "error",
+          new Error("test error"),
+        );
+
+        // Assert
+        expect(mockClientAuth.logout).toHaveBeenCalled();
+      });
+    });
+
+    describe("session lifetime extension", () => {
+      it("calls the registered callback on session lifetime extension", async () => {
+        // Arrange
+        const mockSessionInfo: ISessionInfo = {
+          isLoggedIn: true,
+          sessionId: "test-session-id",
+          expirationDate: 1000,
+        };
+
+        const mockClientAuth = {
+          login: jest.fn(() => Promise.resolve(mockSessionInfo)),
+        };
+
+        const testSession = new Session({
+          clientAuthentication: mockClientAuth as any as ClientAuthentication,
+        });
+        await testSession.login({});
+
+        // Act
+        const now = Date.now();
+        (testSession.events as EventEmitter).emit(
+          EVENTS.SESSION_EXTENDED,
+          1000,
+        );
+
+        // Assert
+        expect(testSession.info.expirationDate).toBeGreaterThan(now);
       });
     });
   });

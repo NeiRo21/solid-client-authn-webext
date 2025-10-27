@@ -37,12 +37,23 @@ import {
   mockLogoutHandler,
 } from "@inrupt/solid-client-authn-core/mocks";
 
-import { mockLoginHandler } from "./login/__mocks__/LoginHandler";
-import { mockSessionInfoManager } from "./sessionInfo/__mocks__/SessionInfoManager";
+import {
+  MockLoginHandlerResponse,
+  mockLoginHandler,
+} from "./login/__mocks__/LoginHandler";
+import {
+  mockSessionInfoManager,
+  SessionInfoManagerMock,
+} from "./sessionInfo/__mocks__/SessionInfoManager";
 import ClientAuthentication from "./ClientAuthentication";
 import { mockDefaultIssuerConfigFetcher } from "./login/oidc/__mocks__/IssuerConfigFetcher";
 
 jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response());
+
+const TEST_REDIRECT_URL = "https://coolapp.com/redirect";
+jest
+  .spyOn(globalThis.browser.identity, "getRedirectURL")
+  .mockReturnValue(TEST_REDIRECT_URL);
 
 jest.mock("@inrupt/solid-client-authn-core", () => {
   const actualCoreModule = jest.requireActual(
@@ -105,26 +116,19 @@ describe("ClientAuthentication", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    Object.defineProperty(window, "location", {
-      writable: true,
-      value: { assign: jest.fn() },
-    });
   });
 
   describe("login", () => {
     const mockEmitter = new EventEmitter();
-    // TODO: add tests for events & errors
 
     it("calls login, and defaults to a DPoP token", async () => {
       const clientAuthn = getClientAuthentication();
       await clientAuthn.login(
         {
           sessionId: "mySession",
-          tokenType: "DPoP",
           clientId: "coolApp",
-          redirectUrl: "https://coolapp.com/redirect",
           oidcIssuer: "https://idp.com",
+          tokenType: "DPoP",
         },
         mockEmitter,
       );
@@ -141,13 +145,52 @@ describe("ClientAuthentication", () => {
       });
     });
 
-    it("request a bearer token if specified", async () => {
+    it("returns session info returned by login handler", async () => {
+      // Arrange
+      const clientAuthn = getClientAuthentication();
+
+      // Act
+      const sessionInfo = await clientAuthn.login(
+        {
+          sessionId: "mySession",
+          clientId: "coolApp",
+          oidcIssuer: "https://idp.com",
+          tokenType: "DPoP",
+        },
+        mockEmitter,
+      );
+
+      // Assert
+      expect(sessionInfo).toEqual(MockLoginHandlerResponse);
+    });
+
+    it("updates fetch to one returned by login handler and bound to window", async () => {
+      // Arrange
+      const clientAuthn = getClientAuthentication();
+
+      // Act
+      await clientAuthn.login(
+        {
+          sessionId: "mySession",
+          clientId: "coolApp",
+          oidcIssuer: "https://idp.com",
+          tokenType: "DPoP",
+        },
+        mockEmitter,
+      );
+      await clientAuthn.fetch("https://example.com");
+
+      // Assert
+      const mockedFetch = jest.mocked(globalThis.fetch);
+      expect(mockedFetch.mock.contexts[0]).toBe(window);
+    });
+
+    it("requests a bearer token if specified", async () => {
       const clientAuthn = getClientAuthentication();
       await clientAuthn.login(
         {
           sessionId: "mySession",
           clientId: "coolApp",
-          redirectUrl: "https://coolapp.com/redirect",
           oidcIssuer: "https://idp.com",
           tokenType: "Bearer",
         },
@@ -184,7 +227,6 @@ describe("ClientAuthentication", () => {
           tokenType: "DPoP",
           clientId: "coolApp",
           clientName: "coolApp Name",
-          redirectUrl: "https://coolapp.com/redirect",
           oidcIssuer: "https://idp.com",
         },
         mockEmitter,
@@ -202,6 +244,7 @@ describe("ClientAuthentication", () => {
     });
 
     it("should not clear the local storage when logging in with prompt set to none", async () => {
+      // Arrange
       const nonEmptyStorage = mockStorageUtility({
         someUser: { someKey: "someValue" },
       });
@@ -213,116 +256,153 @@ describe("ClientAuthentication", () => {
       const clientAuthn = getClientAuthentication({
         sessionInfoManager: mockSessionInfoManager(nonEmptyStorage),
       });
+
+      // Act
       await clientAuthn.login(
         {
           sessionId: "someUser",
           tokenType: "DPoP",
           clientId: "coolApp",
           clientName: "coolApp Name",
-          redirectUrl: "https://coolapp.com/redirect",
           oidcIssuer: "https://idp.com",
           prompt: "none",
         },
         mockEmitter,
       );
+
+      // Assert
+      expect(SessionInfoManagerMock.clear).not.toHaveBeenCalled();
       await expect(
         nonEmptyStorage.getForUser("someUser", "someKey", { secure: false }),
       ).resolves.toBe("someValue");
     });
 
-    it("throws if the redirect IRI is undefined", async () => {
+    it("ignores redirect URL supplied by user", async () => {
+      // Arrange
       const clientAuthn = getClientAuthentication();
-      await expect(() =>
-        clientAuthn.login(
-          {
-            sessionId: "someUser",
-            tokenType: "DPoP",
-            clientId: "coolApp",
-            oidcIssuer: "https://idp.com",
-          },
-          mockEmitter,
-        ),
-      ).rejects.toThrow();
-    });
 
-    it("throws if the redirect IRI is a malformed URL", async () => {
-      const clientAuthn = getClientAuthentication();
-      await expect(() =>
-        clientAuthn.login(
-          {
-            sessionId: "someUser",
-            tokenType: "DPoP",
-            clientId: "coolApp",
-            redirectUrl: "not a valid URL",
-            oidcIssuer: "https://idp.com",
-          },
-          mockEmitter,
-        ),
-      ).rejects.toThrow();
-    });
-
-    it("throws if the redirect IRI contains a hash fragment, with a helpful message", async () => {
-      const clientAuthn = getClientAuthentication();
-      await expect(() =>
-        clientAuthn.login(
-          {
-            sessionId: "someUser",
-            tokenType: "DPoP",
-            clientId: "coolApp",
-            redirectUrl: "https://example.org/redirect#some-fragment",
-            oidcIssuer: "https://idp.com",
-          },
-          mockEmitter,
-        ),
-      ).rejects.toThrow("hash fragment");
-    });
-
-    it("throws if the redirect IRI contains a reserved query parameter, with a helpful message", async () => {
-      const clientAuthn = getClientAuthentication();
-      await expect(() =>
-        clientAuthn.login(
-          {
-            sessionId: "someUser",
-            tokenType: "DPoP",
-            clientId: "coolApp",
-            redirectUrl: "https://example.org/redirect?state=1234",
-            oidcIssuer: "https://idp.com",
-          },
-          mockEmitter,
-        ),
-      ).rejects.toThrow("query parameter");
-      await expect(() =>
-        clientAuthn.login(
-          {
-            sessionId: "someUser",
-            tokenType: "DPoP",
-            clientId: "coolApp",
-            redirectUrl: "https://example.org/redirect?code=1234",
-            oidcIssuer: "https://idp.com",
-          },
-          mockEmitter,
-        ),
-      ).rejects.toThrow("query parameter");
-    });
-
-    it("does not normalize the redirect URL if provided by the user", async () => {
-      const clientAuthn = getClientAuthentication();
+      // Act
       await clientAuthn.login(
         {
           sessionId: "mySession",
           clientId: "coolApp",
-          // Note that the redirect IRI does not include a trailing slash.
           redirectUrl: "https://example.org",
           oidcIssuer: "https://idp.com",
           tokenType: "Bearer",
         },
         mockEmitter,
       );
+
+      // Assert
       expect(defaultMocks.loginHandler.handle).toHaveBeenCalledWith(
         expect.objectContaining({
-          redirectUrl: "https://example.org",
+          redirectUrl: TEST_REDIRECT_URL,
         }),
       );
+    });
+
+    it("uses clientName when provided, otherwise falls back to clientId", async () => {
+      const clientAuthn = getClientAuthentication();
+      await clientAuthn.login(
+        {
+          sessionId: "mySession",
+          clientId: "coolApp",
+          clientName: "Cool App Name",
+          oidcIssuer: "https://idp.com",
+          tokenType: "DPoP",
+        },
+        mockEmitter,
+      );
+      expect(defaultMocks.loginHandler.handle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientName: "Cool App Name",
+        }),
+      );
+    });
+
+    it("falls back to clientId when clientName is not provided", async () => {
+      const clientAuthn = getClientAuthentication();
+      await clientAuthn.login(
+        {
+          sessionId: "mySession",
+          clientId: "coolApp",
+          oidcIssuer: "https://idp.com",
+          tokenType: "DPoP",
+        },
+        mockEmitter,
+      );
+      expect(defaultMocks.loginHandler.handle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientName: "coolApp",
+        }),
+      );
+    });
+
+    it("throws error when login handler throws an error", async () => {
+      // Arrange
+      const mockError = new Error("Login failed");
+      const loginHandler = mockLoginHandler();
+      jest.spyOn(loginHandler, "handle").mockRejectedValue(mockError);
+
+      const clientAuthn = getClientAuthentication({ loginHandler });
+
+      // Act & Assert
+      await expect(
+        clientAuthn.login(
+          {
+            sessionId: "mySession",
+            clientId: "coolApp",
+            oidcIssuer: "https://idp.com",
+            tokenType: "DPoP",
+          },
+          mockEmitter,
+        ),
+      ).rejects.toThrow(mockError);
+    });
+
+    it("throws error when login handler returns undefined", async () => {
+      // Arrange
+      const loginHandler = mockLoginHandler();
+      jest.spyOn(loginHandler, "handle").mockResolvedValue(undefined);
+
+      const clientAuthn = getClientAuthentication({ loginHandler });
+
+      // Act & Assert
+      await expect(
+        clientAuthn.login(
+          {
+            sessionId: "mySession",
+            clientId: "coolApp",
+            oidcIssuer: "https://idp.com",
+            tokenType: "DPoP",
+          },
+          mockEmitter,
+        ),
+      ).rejects.toThrow("Unexpected login failure: no session info returned");
+    });
+
+    it("throws error when session info manager throws an error", async () => {
+      // Arrange
+      jest
+        .spyOn(SessionInfoManagerMock, "clear")
+        .mockRejectedValue(new Error("Clear failed"));
+
+      const clientAuthn = getClientAuthentication({
+        sessionInfoManager: SessionInfoManagerMock,
+      });
+
+      // Act & Assert
+      await expect(
+        clientAuthn.login(
+          {
+            sessionId: "mySession",
+            clientId: "coolApp",
+            oidcIssuer: "https://idp.com",
+            tokenType: "DPoP",
+          },
+          mockEmitter,
+        ),
+      ).rejects.toThrow("Clear failed");
     });
   });
 

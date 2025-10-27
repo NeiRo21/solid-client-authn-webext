@@ -39,11 +39,10 @@ import { v4 } from "uuid";
 import EventEmitter from "events";
 import type ClientAuthentication from "./ClientAuthentication";
 import { getClientAuthenticationWithDependencies } from "./dependencies";
-import type { RedirectCallback, RedirectInfo } from "./login/oidc/Redirector";
 
 export interface ISessionOptions {
   /**
-   * A private storage, unreachable to other scripts on the page. Typically in-memory.
+   * A private storage, unreachable to other extensions. Typically in-memory.
    */
   secureStorage: IStorage;
   /**
@@ -61,7 +60,7 @@ export interface ISessionOptions {
 }
 
 /**
- * A {@link Session} object represents a user's session on an application. The session holds state, as it stores information enabling access to private resources after login for instance.
+ * A {@link Session} object represents a user's session on an application. The session holds state, as it stores information enabling access to private resources after login.
  */
 export class Session implements IHasSessionEventListener {
   /**
@@ -72,17 +71,10 @@ export class Session implements IHasSessionEventListener {
   /**
    * Session attribute exposing the EventEmitter interface, to listen on session
    * events such as login, logout, etc.
-   * @since 1.15.0
    */
   public readonly events: ISessionEventListener;
 
   private readonly clientAuthentication: ClientAuthentication;
-
-  private resolveLogin: (value: PromiseLike<void> | void) => void = (
-    _value,
-  ) => {};
-
-  private rejectLogin: (reason?: Error) => void = (_reason) => {};
 
   /**
    * Session object constructor. Typically called as follows:
@@ -107,18 +99,12 @@ export class Session implements IHasSessionEventListener {
     if (sessionOptions.clientAuthentication) {
       this.clientAuthentication = sessionOptions.clientAuthentication;
     } else if (sessionOptions.secureStorage && sessionOptions.insecureStorage) {
-      this.clientAuthentication = getClientAuthenticationWithDependencies(
-        this.redirectCallback,
-        {
-          secureStorage: sessionOptions.secureStorage,
-          insecureStorage: sessionOptions.insecureStorage,
-        },
-      );
+      this.clientAuthentication = getClientAuthenticationWithDependencies({
+        secureStorage: sessionOptions.secureStorage,
+        insecureStorage: sessionOptions.insecureStorage,
+      });
     } else {
-      this.clientAuthentication = getClientAuthenticationWithDependencies(
-        this.redirectCallback,
-        {},
-      );
+      this.clientAuthentication = getClientAuthenticationWithDependencies({});
     }
 
     if (sessionOptions.sessionInfo) {
@@ -143,27 +129,30 @@ export class Session implements IHasSessionEventListener {
   /**
    * Triggers the login process. Note that this method will redirect the user away from your app.
    *
-   * @param options Parameter to customize the login behaviour. In particular, two options are mandatory: `options.oidcIssuer`, the user's identity provider, and `options.redirectUrl`, the URL to which the user will be redirected after logging in their identity provider.
-   * @returns TODO
+   * @param options Parameter to customize the login behaviour. Only `options.oidcIssuer` specifying user's identity provider is required. `options.redirectUrl` is ignored if specified.
+   * @returns A promise resolving when login process finishes.
    */
-  // Define these functions as properties so that they don't get accidentally re-bound.
-  // Isn't Javascript fun?
   login = async (options: ILoginInputOptions): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      this.resolveLogin = resolve;
-      this.rejectLogin = reject;
-      this.clientAuthentication
-        .login(
-          {
-            sessionId: this.info.sessionId,
-            ...options,
-            // Defaults the token type to DPoP
-            tokenType: options.tokenType ?? "DPoP",
-          },
-          this.events,
-        )
-        .catch((err) => reject(err));
-    });
+    return this.clientAuthentication
+      .login(
+        {
+          sessionId: this.info.sessionId,
+          ...options,
+          tokenType: options.tokenType ?? "DPoP",
+        },
+        this.events,
+      )
+      .then((sessionInfo) => {
+        this.setSessionInfo(sessionInfo);
+        if (sessionInfo.isLoggedIn) {
+          (this.events as EventEmitter).emit(EVENTS.LOGIN);
+        }
+      })
+      .catch((err) => {
+        this.info.isLoggedIn = false;
+        (this.events as EventEmitter).emit(EVENTS.ERROR, "login", err);
+        return Promise.reject(err);
+      });
   };
 
   /**
@@ -175,25 +164,8 @@ export class Session implements IHasSessionEventListener {
   fetch: typeof fetch = (url, init) =>
     this.clientAuthentication.fetch(url, init);
 
-  private readonly redirectCallback: RedirectCallback = (
-    redirectInfo: RedirectInfo,
-    error?: Error,
-  ) => {
-    const { fetch, ...info } = redirectInfo;
-    this.setSessionInfo(info);
-    if (error) {
-      this.rejectLogin(error);
-    } else {
-      this.resolveLogin();
-    }
-    if (info.isLoggedIn) {
-      this.fetch = fetch.bind(window);
-      (this.events as EventEmitter).emit(EVENTS.LOGIN);
-    }
-  };
-
   /**
-   * An internal logout function, to control whether or not the logout signal
+   * An internal logout function, to control whether the logout signal
    * should be sent, i.e. if the logout was user-initiated or is the result of
    * an external event.
    *
@@ -205,7 +177,6 @@ export class Session implements IHasSessionEventListener {
   ): Promise<void> => {
     await this.clientAuthentication.logout(this.info.sessionId, options);
     this.info.isLoggedIn = false;
-    this.fetch = (url, init) => this.clientAuthentication.fetch(url, init);
     if (emitSignal) {
       (this.events as EventEmitter).emit(EVENTS.LOGOUT);
     }
@@ -214,42 +185,13 @@ export class Session implements IHasSessionEventListener {
   /**
    * Logs the user out of the application.
    *
-   * There are 2 types of logout supported by this library,
-   * `app` logout and `idp` logout.
-   *
-   * App logout will log the user out within the application
+   * It will log the user out within the application
    * by clearing any session data from the browser. It does
    * not log the user out of their Solid identity provider,
-   * and should not redirect the user away.
-   * App logout can be performed as follows:
-   * ```typescript
-   * await session.logout({ logoutType: 'app' });
-   * ```
-   *
-   * IDP logout will log the user out of their Solid identity provider,
-   * and will redirect the user away from the application to do so. In order
-   * for users to be redirected back to `postLogoutUrl` you MUST include the
-   * `postLogoutUrl` value in the `post_logout_redirect_uris` field in the
-   * [Client ID Document](https://docs.inrupt.com/ess/latest/security/authentication/#client-identifier-client-id).
-   * IDP logout can be performed as follows:
-   * ```typescript
-   * await session.logout({
-   *  logoutType: 'idp',
-   *  // An optional URL to redirect to after logout has completed;
-   *  // this MUST match a logout URL listed in the Client ID Document
-   *  // of the application that is logged in.
-   *  // If the application is logged in with a Client ID that is not
-   *  // a URI dereferencing to a Client ID Document then users will
-   *  // not be redirected back to the `postLogoutUrl` after logout.
-   *  postLogoutUrl: 'https://example.com/logout',
-   *  // An optional value to be included in the query parameters
-   *  // when the IDP provider redirects the user to the postLogoutRedirectUrl.
-   *  state: "my-state"
-   * });
-   * ```
+   * and will not redirect the user away.
    */
-  logout = async (options?: ILogoutOptions): Promise<void> =>
-    this.internalLogout(true, options);
+  logout = async (): Promise<void> =>
+    this.internalLogout(true, { logoutType: "app" });
 
   private setSessionInfo(sessionInfo: ISessionInfo): void {
     this.info.isLoggedIn = sessionInfo.isLoggedIn;

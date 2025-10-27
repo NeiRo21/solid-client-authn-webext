@@ -26,24 +26,16 @@ import { mockStorageUtility } from "@inrupt/solid-client-authn-core";
 import { getClientAuthenticationWithDependencies } from "./dependencies";
 import ClientAuthentication from "./ClientAuthentication";
 
-const mockRedirectCallback = jest.fn();
-
 describe("dependencies", () => {
   it("performs dependency injection", () => {
-    const clientAuthn = getClientAuthenticationWithDependencies(
-      mockRedirectCallback,
-      {},
-    );
+    const clientAuthn = getClientAuthenticationWithDependencies({});
     expect(clientAuthn).toBeInstanceOf(ClientAuthentication);
   });
 
   it("performs dependency injection with a given input", () => {
-    const clientAuthn = getClientAuthenticationWithDependencies(
-      mockRedirectCallback,
-      {
-        secureStorage: mockStorageUtility({}),
-      },
-    );
+    const clientAuthn = getClientAuthenticationWithDependencies({
+      secureStorage: mockStorageUtility({}),
+    });
     expect(clientAuthn).toBeInstanceOf(ClientAuthentication);
   });
 });
