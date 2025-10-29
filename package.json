@@ -6,7 +6,6 @@
     "packages/**"
   ],
   "scripts": {
-    "test:dev": "lerna run dev --scope=test-app",
     "bootstrap": "lerna bootstrap",
     "build": "lerna run build",
     "clean": "rimraf packages/*/dist/ packages/*/node_modules/ packages/*/coverage/ packages/*/umd/",
@@ -31,11 +30,9 @@
   "devDependencies": {
     "@inrupt/base-rollup-config": "^4.0.5",
     "@inrupt/eslint-config-lib": "^3.2.7",
-    "@inrupt/internal-playwright-helpers": "^4.0.5",
     "@inrupt/internal-test-env": "^4.0.3",
     "@inrupt/jest-jsdom-polyfills": "^4.0.5",
     "@inrupt/solid-client": "^2.1.2",
-    "@playwright/test": "^1.56.0",
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
