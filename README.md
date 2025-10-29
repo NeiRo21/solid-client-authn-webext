@@ -1,122 +1,56 @@
-# Solid JavaScript Authentication - solid-client-authn
+# Solid authentication for web browser extensions
 
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE-OF-CONDUCT.md)
+`solid-client-authn-webext` is a fork of Inrupt's [Solid client authentication libraries](https://github.com/inrupt/solid-client-authn-js) adapted for web browser extensions. This library implementation is mostly based on `@inrupt/solid-client-authn-browser`, and is inspired by [WebClip Chrome extension](https://github.com/codecentric/web-clip).
 
-This project adheres to the Contributor Covenant [code of conduct](CODE-OF-CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [engineering@inrupt.com](mailto:engineering@inrupt.com).
+`solid-client-authn-webext` uses browser's [Identity API](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/identity) to perform the first part of OAuth2 flow and obtain an authorization code - the rest is the same as in `@inrupt/solid-client-authn-browser`. See [Browser compatibility table](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/identity#browser_compatibility) for the list of supported browsers.
 
-`solid-client-authn` is a suite of libraries to manage the authentication required to access protected resources on Solid servers.
-The libraries share a common API and include different modules for different deployment environments:
+`solid-client-authn-webext` is currently placed in a `solid-client-authn-js` repository fork because it uses non-exported members of `@inrupt/solid-client-authn-core`. It is also easy to keep it up to date with the upstream this way.
 
-- `solid-client-authn-browser` can be used to build web apps in the browser.
-- `solid-client-authn-node` can be used to build server-side and console-based apps.
+## Usage
 
-@inrupt/solid-client-authn libraries are part of a suite open source JavaScript libraries designed to support developers building Solid applications.
+`solid-client-authn-webext`'s interface is almost identical to the ones of Inrupt's `solid-client-authn` libraries: the main difference is that redirects during the login process are handled internally by the library, so `Session.handleIncomingRedirect()` method is absent. Besides that, `IDP` logout isn't supported at the moment.
 
-# Inrupt Solid JavaScript Client Libraries
+See [Inrupt JS SDK documentation](https://docs.inrupt.com/sdk/javascript-sdk) for information on using client libraries and building Solid applications.
 
-## Data access and permissions management - solid-client
+### Example
 
-[@inrupt/solid-client](https://github.com/inrupt/solid-client-js/) allows developers to access data and manage permissions on data stored in Solid Pods.
-
-## Authentication - solid-client-authn
-
-[@inrupt/solid-client-authn](https://github.com/inrupt/solid-client-authn) allows developers to authenticate against a Solid server. This is necessary when the resources on your Pod are not public.
-
-## Vocabularies and interoperability - solid-common-vocab-rdf
-
-[@inrupt/solid-common-vocab-rdf](https://github.com/inrupt/solid-common-vocab-rdf) allows developers to build interoperable apps by reusing well-known vocabularies. These libraries provide vocabulary terms as constants that you just have to import.
-
-# Supported environments
-
-Our JavaScript Client Libraries use relatively modern JavaScript, aligned with
-the [ES2022](https://262.ecma-international.org/13.0/) Specification features, we
-ship both [ESM](https://nodejs.org/docs/latest-v16.x/api/esm.html) and
-[CommonJS](https://nodejs.org/docs/latest-v16.x/api/modules.html), with type
-definitions for TypeScript alongside.
-
-This means that out of the box, we only support environments (browsers or
-runtimes) that were released after mid-2022, if you wish to target other (older)
-environments, then you will need to cross-compile our SDKs via the use of
-[Babel](https://babeljs.io), [webpack](https://webpack.js.org/),
-[SWC](https://swc.rs/), or similar.
-
-If you need support for Internet Explorer, it is recommended to pass them
-through a tool like [Babel](https://babeljs.io), and to add polyfills for e.g.
-`Map`, `Set`, `Promise`, `Headers`, `Array.prototype.includes`, `Object.entries`
-and `String.prototype.endsWith`.
-
-## Node.js Support
-
-See [Inrupt Solid Javascript Client
-Libraries](https://docs.inrupt.com/sdk/javascript-sdk#node-js-support).
-
-# Installation
-
-For the latest stable version of solid-client-authn-browser:
-
-```bash
-npm install @inrupt/solid-client-authn-browser
+```typescript
+const solidSession = new Session();
+solidSession
+    .login({
+        oidcIssuer: "https://solidcommunity.net",
+        clientName: "TestWebExt",
+    })
+    .then(() => {
+        if (solidSession.info.isLoggedIn) {
+            // access a Solid pod e.g.
+            const myDataset = await getSolidDataset(
+                "https://somepod.solidcommunity.net/somepath",
+                { fetch: solidSession.fetch }
+            );
+        } else {
+            // shouldn't ever happen
+            log.error('Login did not succeed for an unknown reason');
+        }
+    })
+    .catch((err) => {
+        console.error(err);
+    });
 ```
 
-For the latest stable version of solid-client-authn-node:
+### Required polyfills
 
-```bash
-npm install @inrupt/solid-client-authn-node
-```
+Same as for `@inrupt/solid-client-authn-browser`: the library requires `events` Node.js module, so if you do not use Webpack or use version 5+, you'll need to install `events` npm package.
 
-For the latest stable version of all Inrupt Solid JavaScript libraries:
+### node-solid-server compatibility
 
-```bash
-# For browser-based projects
-npm install @inrupt/solid-client @inrupt/solid-client-authn-browser @inrupt/vocab-common-rdf
+[node-solid-server 5.3.0](https://github.com/solid/node-solid-server/releases/tag/v5.3.0) or higher.
 
-# For Node.js-based projects
-npm install @inrupt/solid-client @inrupt/solid-client-authn-node @inrupt/vocab-common-rdf
-```
+## Development
 
-# Issues & Help
+The library source code resides under `packages/webext`.
 
-## Solid Community Forum
+## See also
 
-If you have questions about working with Solid or just want to share what you’re working on, visit the [Solid forum](https://forum.solidproject.org/). The Solid forum is a good place to meet the rest of the community.
-
-## Bugs and Feature Requests
-
-- For public feedback, bug reports, and feature requests please file an issue via [GitHub](https://github.com/inrupt/solid-client-authn/issues/).
-- For non-public feedback or support inquiries please use the [Inrupt Service Desk](https://inrupt.atlassian.net/servicedesk).
-
-## Documentation
-
-- [Using Inrupt Solid JavaScript Client Libraries to authenticate](https://docs.inrupt.com/sdk/javascript-sdktutorial/authenticate/)
-- [Inrupt documentation Homepage](https://docs.inrupt.com/)
-- [Architecture and design documentation](./ARCHITECTURE.md)
-- [Security policy and vulnerability reporting](./SECURITY.md)
-
-## How to run test apps?
-
-### Browser
-
-```shell
-git clone https://github.com/inrupt/solid-client-authn-js
-cd solid-client-authn-js
-npm ci
-cd packages/browser/examples/single/bundle/
-npm ci
-npm run start
-```
-
-Go to http://localhost:3001/.
-
-### NodeJS
-
-#### Running a server-side app
-
-See [the dedicated example](/packages/node/examples/server/README.md).
-
-#### Running an authenticated script
-
-See [the dedicated example](/packages/node/examples/script/README.md).
-
-## Using with jest
-
-Due to [a behavior from jsdom](https://github.com/jsdom/jsdom/issues/2524), `@inrupt/solid-client-authn-browser` needs some adjustments if you want to run it with `jest`. There are multiple options, listed in [a dedicated issue](https://github.com/inrupt/solid-client-authn-js/issues/1676). Thanks to [Angelo V.](https://github.com/angelo-v) for proposing a mitigation.
+- [Inrupt documentation home](https://docs.inrupt.com/)
+- [Solid community forum](https://forum.solidproject.org/)
