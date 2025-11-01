@@ -19,25 +19,25 @@ See [Inrupt JS SDK documentation](https://docs.inrupt.com/sdk/javascript-sdk) fo
 ```typescript
 const solidSession = new Session();
 solidSession
-    .login({
-        oidcIssuer: "https://solidcommunity.net",
-        clientName: "TestWebExt",
-    })
-    .then(() => {
-        if (solidSession.info.isLoggedIn) {
-            // access a Solid pod e.g.
-            const myDataset = await getSolidDataset(
-                "https://somepod.solidcommunity.net/somepath",
-                { fetch: solidSession.fetch }
-            );
-        } else {
-            // shouldn't ever happen
-            log.error('Login did not succeed for an unknown reason');
-        }
-    })
-    .catch((err) => {
-        console.error(err);
-    });
+  .login({
+    oidcIssuer: "https://solidcommunity.net",
+    clientName: "TestWebExt",
+  })
+  .then(() => {
+    if (solidSession.info.isLoggedIn) {
+      // access a Solid pod e.g.
+      const myDataset = await getSolidDataset(
+        "https://somepod.solidcommunity.net/somepath",
+        { fetch: solidSession.fetch },
+      );
+    } else {
+      // shouldn't ever happen
+      log.error("Login did not succeed for an unknown reason");
+    }
+  })
+  .catch((err) => {
+    console.error(err);
+  });
 ```
 
 ### Required polyfills
