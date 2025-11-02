@@ -19,7 +19,7 @@
     "lint:prettier": "prettier \"packages/**/*.{ts,tsx,js,jsx,css,md,mdx,yml}\" \"./*.{md,mdx,yml,ts,json}\"",
     "postinstall": "npm run build",
     "prepublishOnly": "npm run build",
-    "publish": "lerna publish",
+    "publish": "lerna publish --no-private",
     "test": "npm run test:unit:all",
     "test:unit:all": "jest --coverage --verbose",
     "test:unit:webext": "jest --coverage --verbose --selectProjects webext",

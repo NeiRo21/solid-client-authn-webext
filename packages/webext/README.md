@@ -1,12 +1,8 @@
 # Solid authentication for web browser extensions
 
-[![CodeQL Advanced](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/codeql.yml)
-
 `solid-client-authn-webext` is a fork of Inrupt's [Solid client authentication libraries](https://github.com/inrupt/solid-client-authn-js) adapted for web browser extensions. This library implementation is mostly based on `@inrupt/solid-client-authn-browser`, and is inspired by [WebClip Chrome extension](https://github.com/codecentric/web-clip).
 
 `solid-client-authn-webext` uses browser's [Identity API](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/identity) to perform the first part of OAuth2 flow and obtain an authorization code - the rest is the same as in `@inrupt/solid-client-authn-browser`. See [Browser compatibility table](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/identity#browser_compatibility) for the list of supported browsers.
-
-`solid-client-authn-webext` is currently placed in a `solid-client-authn-js` repository fork because it uses non-exported members of `@inrupt/solid-client-authn-core`. It is also easy to keep it up to date with the upstream this way.
 
 ## Usage
 
@@ -51,10 +47,6 @@ Same as for `@inrupt/solid-client-authn-browser`: the library requires `events` 
 ### node-solid-server compatibility
 
 [node-solid-server 5.3.0](https://github.com/solid/node-solid-server/releases/tag/v5.3.0) or higher.
-
-## Development
-
-The library source code resides under `packages/webext`.
 
 ## See also
 
