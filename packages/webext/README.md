@@ -12,9 +12,11 @@ See [Inrupt JS SDK documentation](https://docs.inrupt.com/sdk/javascript-sdk) fo
 
 ### Installation
 
-TODO: add
+```sh
+npm install @neiro21/solid-client-authn-webext
+```
 
-### Example
+### Code example
 
 ```typescript
 const solidSession = new Session();
