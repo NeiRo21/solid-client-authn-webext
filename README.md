@@ -50,7 +50,8 @@ solidSession
 
 ### Required polyfills
 
-Same as for `@inrupt/solid-client-authn-browser`: the library requires `events` Node.js module, so if you do not use Webpack or use version 5+, you'll need to install `events` npm package.
+The library requires `events` Node.js module, so if you do not use Webpack or use version 5+, you'll need to install `events` npm package.  
+[webextension-polyfill](https://www.npmjs.com/package/webextension-polyfill) is also required on Chrome / Opera / Edge.
 
 ### node-solid-server compatibility
 
