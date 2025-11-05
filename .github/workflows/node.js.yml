@@ -30,4 +30,4 @@ jobs:
     # included in postinstall
     # - run: npm run build --if-present
     - run: npm test
-    - run: npm lint:check
+    - run: npm run lint:check
