@@ -1,6 +1,7 @@
 # Solid authentication for web browser extensions
 
 ![NPM Version](https://img.shields.io/npm/v/%40neiro21%2Fsolid-client-authn-webext)
+[![CI](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/node.js.yml/badge.svg)](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/node.js.yml)
 [![CodeQL Advanced](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/codeql.yml)
 
 `solid-client-authn-webext` is a fork of Inrupt's [Solid client authentication libraries](https://github.com/inrupt/solid-client-authn-js) adapted for web browser extensions. This library implementation is mostly based on `@inrupt/solid-client-authn-browser`, and is inspired by [WebClip Chrome extension](https://github.com/codecentric/web-clip).
