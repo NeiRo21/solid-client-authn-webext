@@ -33,7 +33,7 @@
     "@inrupt/internal-test-env": "^4.0.3",
     "@inrupt/jest-jsdom-polyfills": "^4.0.5",
     "@inrupt/solid-client": "^2.1.2",
-    "@rollup/plugin-commonjs": "^28.0.9",
+    "@rollup/plugin-commonjs": "^29.0.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@types/dotenv-flow": "^3.3.3",
@@ -61,7 +61,7 @@
     "typescript": "^5.9.3"
   },
   "optionalDependencies": {
-    "@nx/nx-win32-x64-msvc": "^21.6.2",
+    "@nx/nx-win32-x64-msvc": "^22.0.2",
     "fsevents": "^2.3.2"
   },
   "engines": {
