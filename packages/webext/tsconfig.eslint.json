@@ -5,8 +5,5 @@
     "allowJs": true
   },
   "extends": "../../tsconfig.build.json",
-  "include": [
-    "src/**/*.spec.ts",
-    "**/__mocks__/*"
-  ]
+  "include": ["src/**/*.spec.ts", "**/__mocks__/*"]
 }

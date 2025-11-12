@@ -20,17 +20,39 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-import Environment from "jest-environment-jsdom";
+// Copyright (c) 2025 NeiRo21
 
-export default class CustomTestEnvironment extends Environment {
-  async setup() {
-    await super.setup();
-    if (typeof this.global.TextEncoder === "undefined") {
-      // The following doesn't work from jest-jsdom-polyfills.
-      // TextEncoder (global or via 'util') references a Uint8Array constructor
-      // different than the global one used by users in tests. This makes sure the
-      // same constructor is referenced by both.
-      this.global.Uint8Array = Uint8Array;
-    }
-  }
-}
+import inruptCfg, { ignoreTypedLinting } from "@inrupt/eslint-config-base";
+import next from "@next/eslint-plugin-next";
+
+import { defineConfig } from "eslint/config";
+
+ignoreTypedLinting(["**/customEnvironment.ts"]);
+
+export default defineConfig([
+  inruptCfg,
+  {
+    plugins: {
+      "@next/next": next,
+    },
+    rules: {
+      ...next.configs.recommended.rules,
+      ...next.configs["core-web-vitals"].rules,
+    },
+  },
+  {
+    rules: {
+      "no-unused-vars": ["off"],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+      "@next/next/no-html-link-for-pages": ["off"],
+      "headers/header-format": ["off"],
+    },
+  },
+]);
