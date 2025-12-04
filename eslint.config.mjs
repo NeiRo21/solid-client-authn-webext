@@ -25,7 +25,7 @@
 import inruptCfg, { ignoreTypedLinting } from "@inrupt/eslint-config-base";
 import next from "@next/eslint-plugin-next";
 
-import { defineConfig } from "eslint/config";
+import { defineConfig, globalIgnores } from "eslint/config";
 
 ignoreTypedLinting(["**/customEnvironment.ts"]);
 
@@ -55,4 +55,5 @@ export default defineConfig([
       "headers/header-format": ["off"],
     },
   },
+  globalIgnores(["**/packages/core/**"]),
 ]);
