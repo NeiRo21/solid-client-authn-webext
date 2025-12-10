@@ -1,6 +1,6 @@
 {
   "name": "@neiro21/solid-client-authn-webext",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Solid client auth library for web browser extensions",
   "keywords": [
     "solid",
