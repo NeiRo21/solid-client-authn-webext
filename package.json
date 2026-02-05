@@ -25,7 +25,7 @@
     "test:unit:webext": "jest --coverage --verbose --selectProjects webext",
     "test:unit:core": "jest --coverage --verbose --selectProjects core",
     "test:esbuild": "lerna run test:esbuild",
-    "lerna-version": "lerna version --no-push --no-git-tag-version"
+    "lerna-version": "lerna version --no-push --no-git-tag-version --no-private"
   },
   "devDependencies": {
     "@inrupt/base-rollup-config": "^4.0.8",
