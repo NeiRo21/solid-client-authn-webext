@@ -73,6 +73,7 @@ export class SessionInfoManager
       refreshToken,
       issuer,
       tokenType,
+      expiresAt,
     ] = await Promise.all([
       this.storageUtility.getForUser(sessionId, "isLoggedIn", {
         secure: true,
@@ -96,6 +97,9 @@ export class SessionInfoManager
         secure: false,
       }),
       this.storageUtility.getForUser(sessionId, "tokenType", {
+        secure: false,
+      }),
+      this.storageUtility.getForUser(sessionId, "expiresAt", {
         secure: false,
       }),
     ]);
@@ -135,6 +139,8 @@ export class SessionInfoManager
       clientAppSecret: clientSecret,
       // Default the token type to DPoP if unspecified.
       tokenType: tokenType ?? "DPoP",
+      clientExpiresAt:
+        expiresAt !== undefined ? Number.parseInt(expiresAt, 10) : undefined,
     };
   }
 

@@ -61,11 +61,11 @@ export default class WebAuthFlowOidcHandler implements IOidcHandler {
     }
 
     return Promise.resolve(this.getOidcClient(oidcLoginOptions))
-      .then((oidcClient) => oidcClient.createSigninRequest())
+      .then((oidcClient) => oidcClient.createSigninRequest({}))
       .then((signingRequest) => {
-        const state = signingRequest.state._id;
+        const state = signingRequest.state.id;
 
-        const codeVerifier = signingRequest.state._code_verifier;
+        const codeVerifier = signingRequest.state.code_verifier ?? "";
         const targetUrl = signingRequest.url.toString();
         return Promise.all([
           Promise.resolve(targetUrl),
@@ -99,7 +99,7 @@ export default class WebAuthFlowOidcHandler implements IOidcHandler {
       authority: oidcLoginOptions.issuer.toString(),
       client_id: oidcLoginOptions.client.clientId,
       client_secret: oidcLoginOptions.client.clientSecret,
-      redirect_uri: oidcLoginOptions.redirectUrl,
+      redirect_uri: oidcLoginOptions.redirectUrl ?? "",
       response_type: "code",
       scope: oidcLoginOptions.scopes.join(" "),
       filterProtocolClaims: true,
@@ -107,7 +107,6 @@ export default class WebAuthFlowOidcHandler implements IOidcHandler {
       // Note that in Solid, information should be retrieved from the
       // profile referenced by the WebId.
       loadUserInfo: false,
-      code_verifier: true,
       prompt: oidcLoginOptions.prompt ?? "consent",
     };
     /* eslint-enable camelcase */
