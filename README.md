@@ -59,7 +59,18 @@ The library requires `events` Node.js module, so if you do not use Webpack or us
 
 ## Development
 
-The library source code resides under `packages/webext`.
+### Git branches
+
+- `main`: default branch containing `@neiro21/solid-client-authn-webext` code.
+- `upstream`: branch following `main` branch in the upstream [solid-client-authn-js](https://github.com/inrupt/solid-client-authn-js) repository - only used for pulling changes from upstream.
+
+### Directory structure
+
+- `packages/webext` directory contains `@neiro21/solid-client-authn-webext` library code.
+- `packages/core` directory contains `@inrupt/solid-client-authn-core` library code, from which this project uses some non-exported definitions. The only appropriate way to update the contents of this directory is by merging from `upstream` branch.
+- Common configuration and build files etc are at the root of the repository.
+
+`npm` has workspaces configured for both of the directories above. Dependency versions in root `package.json` file are shared by the workspaces. They come from upstream and should be updated by merging from `upstream` branch only.
 
 ## See also
 
