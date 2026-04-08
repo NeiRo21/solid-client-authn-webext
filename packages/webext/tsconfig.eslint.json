@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "noEmit": true,
-    "allowJs": true
+    "allowJs": true,
+    "rootDir": "./src"
   },
   "extends": "../../tsconfig.build.json",
   "include": ["src/**/*.spec.ts", "**/__mocks__/*"]
