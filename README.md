@@ -1,6 +1,6 @@
 # Solid authentication for web browser extensions
 
-![NPM Version](https://img.shields.io/npm/v/%40neiro21%2Fsolid-client-authn-webext)
+[![NPM Version](https://img.shields.io/npm/v/%40neiro21%2Fsolid-client-authn-webext)](https://www.npmjs.com/package/@neiro21/solid-client-authn-webext)
 [![CI](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/node.js.yml/badge.svg)](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/node.js.yml)
 [![CodeQL Advanced](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/NeiRo21/solid-client-authn-webext/actions/workflows/codeql.yml)
 
