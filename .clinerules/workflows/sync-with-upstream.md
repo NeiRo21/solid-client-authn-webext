@@ -62,30 +62,54 @@ git log --oneline main..upstream
 
 If none, let the user know and complete the workflow execution.
 
-## Step 8: Merge upstream changes into main branch
+## Step 8: Create branch for merge
 
-Merge `upstream` branch into `main` branch.
+Create `merge-from-upstream-YYYYMMDD` branch from `HEAD` of `main` branch, where `YYYYMMDD` is today's date, then switch to it. In case of failure, present failure details to the user and ask how to proceed.
 
-## Step 9: Resolve conflicts
+## Step 9: Merge upstream changes into merge branch
+
+Merge `upstream` branch into the current branch. Use `Merge branch 'upstream'` commit message and GPG-sign the merge commit.
+
+## Step 10: Resolve conflicts
 
 Check for merge conflicts. If the merge at the previous step succeeded and there are no conflicts, continue to Step 10.
 
-### Step 9.1: Deleted by us
+### Step 10.1: Deleted by us
 
 Check for merge conflicts with `deleted by us` cause (i.e. when the user previously deleted the file being merged on `main` branch) - keep such files deleted and mark as resolved.
 
-### Step 9.2: Other conflicts
+### Step 10.2: Other conflicts
 
 Ask the user to resolve the outstand merge conflicts and wait for confirmation. Repeat this step until all conflicts are resolved.
 
-## Step 10: Validate merge
+## Step 11: Validate merge
 
-Run the standard build workflow to validate the merge. In case of any issues, report them to the user and ask how to proceed.
+Run the standard build workflow (as defined in `AGENTS.md`) to validate the merge. In case of any issues, report them to the user and ask how to proceed.
 
-## Step 11: Commit conflict resolution changes
+## Step 12: Commit conflict resolution changes
 
-Proceed to the next step if there are no changes to commit. Otherwise, ask the user if the changes can be committed. If confirmed, complete the merge by committing the changes. Use `Merge branch 'upstream'` commit message. Sign the merge commit.
+Proceed to the next step if there are no changes to commit. Otherwise, ask the user if the changes can be committed. If confirmed, complete the merge by committing the changes. Use `Merge branch 'upstream'` commit message and GPG-sign the merge commit.
 
-## Step 12: Prepare to push changes
+## Step 13: Validate changes
 
-Present a summary of changes to be pushed to the remote repository to the user.
+Run this command to get the list of the changes to be integrated into `main` branch:
+
+```sh
+git log --oneline origin/main..merge-from-upstream-YYYYMMDD
+```
+
+Present a summary of the changes above to the user and ask whether to proceed.
+
+## Step 14: Publish merge-from-upstream branch
+
+Publish the merge branch to the remote repository.
+
+## Step 15: Create pull request
+
+Run this command to create a pull request targeting `main` branch:
+
+```sh
+gh pr create -f -a NeiRo21 -B main
+```
+
+Complete the workflow successfully.
