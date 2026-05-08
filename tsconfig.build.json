@@ -10,7 +10,7 @@
     "target": "es2022",
     "sourceMap": true,
     "lib": ["es2022", "dom"],
-    "types": ["@types/node", "@types/firefox-webext-browser"],
+    "types": ["node", "firefox-webext-browser"],
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "outDir": "./dist",
