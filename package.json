@@ -35,7 +35,7 @@
     "@inrupt/solid-client": "^3.0.0",
     "@rollup/plugin-commonjs": "^29.0.2",
     "@rollup/plugin-node-resolve": "^16.0.3",
-    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-terser": "^1.0.0",
     "@types/dotenv-flow": "^3.3.3",
     "@types/http-link-header": "^1.0.7",
     "@types/jest": "^30.0.0",
