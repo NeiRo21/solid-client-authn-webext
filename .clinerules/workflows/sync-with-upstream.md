@@ -84,7 +84,7 @@ Ask the user to resolve the outstand merge conflicts and wait for confirmation. 
 
 ## Step 11: Validate merge
 
-Run the standard build workflow (as defined in `AGENTS.md`) to validate the merge. In case of any issues, report them to the user and ask how to proceed.
+Run the standard build workflow (as defined in `AGENTS.md`) to validate the merge. In case of build or test failures, or any other issues, report them to the user and ask how to proceed.
 
 ## Step 12: Commit conflict resolution changes
 
