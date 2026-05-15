@@ -20,7 +20,7 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-import type { KeyLike } from "jose";
+import type { CryptoKey } from "jose";
 import { exportJWK, generateKeyPair } from "jose";
 import { jest, describe, it, expect } from "@jest/globals";
 import { mockIssuerConfig } from "../login/oidc/__mocks__/IssuerConfig";
@@ -533,15 +533,17 @@ describe("saveSessionInfoToStorage", () => {
     ).resolves.toBe("true");
   });
 
-  let publicKey: KeyLike | undefined;
-  let privateKey: KeyLike | undefined;
+  let publicKey: CryptoKey | undefined;
+  let privateKey: CryptoKey | undefined;
 
   const mockJwk = async (): Promise<{
-    publicKey: KeyLike;
-    privateKey: KeyLike;
+    publicKey: CryptoKey;
+    privateKey: CryptoKey;
   }> => {
     if (typeof publicKey === "undefined" || typeof privateKey === "undefined") {
-      const generatedPair = await generateKeyPair("ES256");
+      const generatedPair = await generateKeyPair("ES256", {
+        extractable: true,
+      });
       publicKey = generatedPair.publicKey;
       privateKey = generatedPair.privateKey;
     }
