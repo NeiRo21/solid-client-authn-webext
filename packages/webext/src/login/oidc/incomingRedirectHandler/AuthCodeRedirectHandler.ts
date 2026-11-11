@@ -42,7 +42,7 @@ import {
   saveSessionInfoToStorage,
 } from "@inrupt/solid-client-authn-core";
 import { getTokens } from "@inrupt/oidc-client-ext";
-import type { EventEmitter } from "events";
+import type { EventEmitter } from "node:events";
 
 /**
  * @hidden

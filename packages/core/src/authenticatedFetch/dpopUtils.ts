@@ -70,10 +70,18 @@ export async function createDpopHeader(
     .sign(dpopKey.privateKey, {});
 }
 
-export async function generateDpopKeyPair(): Promise<KeyPair> {
+/**
+ * Generates an asymmetric key pair.
+ *
+ * @param extractable whether the private key should be extractable or not. Must be false in any potentially untrusted context, e.g. the browser.
+ * @returns A public/private key pair
+ */
+export async function generateDpopKeyPair(
+  extractable: boolean = false,
+): Promise<KeyPair> {
   const { privateKey, publicKey } = await generateKeyPair(
     PREFERRED_SIGNING_ALG[0],
-    { extractable: true },
+    { extractable },
   );
   const dpopKeyPair = {
     privateKey,
