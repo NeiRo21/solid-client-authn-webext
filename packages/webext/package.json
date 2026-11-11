@@ -19,27 +19,26 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
-      "import": "./dist/index.mjs",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/index.mjs"
     }
   },
   "scripts": {
-    "prepublishOnly": "npm run build",
     "build": "rollup --config rollup.config.mjs",
     "licenses:check": "license-checker --production --out license.csv --failOn \"AGPL-1.0-only; AGPL-1.0-or-later; AGPL-3.0-only; AGPL-3.0-or-later; Beerware; CC-BY-NC-1.0; CC-BY-NC-2.0; CC-BY-NC-2.5; CC-BY-NC-3.0; CC-BY-NC-4.0; CC-BY-NC-ND-1.0; CC-BY-NC-ND-2.0; CC-BY-NC-ND-2.5; CC-BY-NC-ND-3.0; CC-BY-NC-ND-4.0; CC-BY-NC-SA-1.0; CC-BY-NC-SA-2.0; CC-BY-NC-SA-2.5; CC-BY-NC-SA-3.0; CC-BY-NC-SA-4.0; CPAL-1.0; EUPL-1.0; EUPL-1.1; EUPL-1.1;  GPL-1.0-only; GPL-1.0-or-later; GPL-2.0-only;  GPL-2.0-or-later; GPL-3.0; GPL-3.0-only; GPL-3.0-or-later; SISSL;  SISSL-1.2; WTFPL\""
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.6.6",
     "@types/uuid": "^11.0.0"
   },
   "dependencies": {
-    "@inrupt/oidc-client-ext": "^5.0.0",
-    "@inrupt/solid-client-authn-core": "^5.0.0",
+    "@inrupt/oidc-client-ext": "^5.0.3",
+    "@inrupt/solid-client-authn-core": "^5.0.3",
     "@types/firefox-webext-browser": "^120.0.0",
     "events": "^3.3.0",
-    "jose": "^6.2.4",
-    "uuid": "^14.0.1"
+    "jose": "^6.2.14",
+    "uuid": "^14.0.3"
   },
   "publishConfig": {
     "access": "public"
